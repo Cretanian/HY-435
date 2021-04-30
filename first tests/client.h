@@ -6,12 +6,16 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
-int main(){
+#include "Message.h"
+#include "Parameters.h"
 
+
+int Client(Parameters *params){
     // Set basic params
     const char *server_ip = "147.52.19.28";
-    int sending_port = 4200;
+    int sending_port = 4201;
 
     // Create socket
     int sock;
@@ -24,24 +28,24 @@ int main(){
     memset(&sin, 0, sizeof(sockaddr_in));
     sin.sin_family = AF_INET;
     sin.sin_port = htons(sending_port);
-    assert(inet_aton (server_ip, &sin.sin_addr) != 0);
 
-    if(inet_aton (server_ip, &sin.sin_addr) != 0){
+    if(inet_aton (server_ip, &sin.sin_addr) == 0){
         perror("Error converting IP to Network Byte Order");
         exit(EXIT_FAILURE);
     }
-
 
     if(connect(sock, (struct sockaddr *)&sin, sizeof(struct sockaddr_in)) < 0){
         perror("Connection Error in socket ");
         exit(EXIT_FAILURE);
     }
 
-    int data_sent = send(sock,0);
+    Header *test_header = (Header *)malloc(sizeof(Header));
 
-    int data_recieved = recv(sock,0); 
+    int data_len = sizeof(Header);
+    int data_sent = send(sock, test_header, data_len, 0);
+    std::cout << "Total data sent: " << data_sent << std::endl;
+    // int data_recieved = recv(sock,0); 
     
     std::cout << "Connected\n";
-
     close(sock);
 }
