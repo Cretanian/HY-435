@@ -7,3 +7,6 @@ client:
 	clear
 	g++ client.cpp
 	./a.out
+
+clean:
+	rm *.out
