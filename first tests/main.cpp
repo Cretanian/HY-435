@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <assert.h>
+#include <signal.h>
+#include <time.h>
 
 #include "client.h"
 #include "server.h"
