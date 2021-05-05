@@ -13,6 +13,8 @@
 #include "server.h"
 #include "Parameters.h"
 
+int listening_port = 4211;
+
 int main(int argc, char *argv[]){
 
     auto params = new Parameters();
