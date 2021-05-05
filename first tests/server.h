@@ -72,9 +72,41 @@ int Server(Parameters *params){
     int data_length = sizeof(Header);
     int data_recv = recv(new_returned_client_socket, (void *)test_header, data_length, 0);
 
-    // TODO :')
-    //poll() use to check data in socket non blocking
-    //recv doent allocate memory
+   
 
+ 
+
+    int udp_sock;
+    if((udp_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
+        perror("Opening UDP listening socket");
+        exit(EXIT_FAILURE);
+    }
+    
+    
+
+    
+    struct sockaddr_in udp_sin;
+    memset(&udp_sin, 0, sizeof(sockaddr_in));
+    udp_sin.sin_family = AF_INET;
+    udp_sin.sin_port = htons(4000);
+    udp_sin.sin_addr.s_addr = htonl (INADDR_ANY);
+    
+    if (bind(udp_sock, (struct sockaddr *) &udp_sin, sizeof(udp_sin)) < 0)
+        perror("bind() failed");
+
+
+    void* echoBuffer =  (void*)malloc(sizeof(int));
+    unsigned int ar = sizeof(udp_sin);
+   
+    int recvMsgSize;
+    if ((recvMsgSize= recvfrom(udp_sock, echoBuffer, 50, 0, (struct sockaddr *) &udp_sin, &ar)) < 0)
+        perror("recvfrom() failed");
+
+    std::cout << *((int*)echoBuffer)  << std::endl;
+
+    std::cout << "Connected\n";
     close(sock);
+    close(udp_sock);
+
+     return -1;
 }
