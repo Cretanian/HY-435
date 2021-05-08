@@ -15,8 +15,15 @@ extern int listening_port;
 
 int Server(Parameters *params){
 
-    unsigned int udp_packet_size = 1;
+    uint8_t buffer[BUFFER_SIZE];
+    unsigned int udp_packet_size = 256;
     unsigned int parallel_data_streams = 1;
+    unsigned int udp_port = 4000;
+    uint8_t *data;
+    int data_recv = 0;
+    int data_sent = 0;
+
+   
 
     // Set basic params
     uint32_t bind_ip = INADDR_ANY;
@@ -75,24 +82,44 @@ int Server(Parameters *params){
         exit(EXIT_FAILURE);
     }
 
+
     // TCP Communication
-    Header *test_header = (Header *)malloc(sizeof(Header));
-    int data_length = sizeof(Header);
-    int data_recv = 0;
-    if ((data_recv= recv(new_returned_client_socket, (void *)test_header, data_length, 0)) < 0)
+    Header *first_tcp_msg ;
+    Header recieved_head;
+    
+    if ((data_recv = recv(new_returned_client_socket, buffer, 1024, 0)) < 0)
         perror("recv() failed");
 
-    udp_packet_size = ntohs(test_header->message_length);
-    parallel_data_streams = ntohs(test_header->num_parallel_streams);
+    std::cout << "DATA rec:" << data_recv << "\n";
+
+    first_tcp_msg = (struct Header *)buffer;
+    data = buffer + sizeof(struct Header);
+    
+    int *a;
+    a = (int *)data;
+
     
 
+    recieved_head.message_length = ntohs(first_tcp_msg->message_length);  //??
+       
+    std::cout << "UDP len:" << recieved_head.message_length << "\nParalle streams: " << a[0]<< "\nudp_pac_size " << a[1] << std::endl ;
 
-    std::cout << "UDP len:" << udp_packet_size << "\nParalle streams: " << parallel_data_streams << std::endl ;
 
-    test_header->message_type = htons(4000);
-    if (send(new_returned_client_socket, (void *)test_header, data_length, 0) != data_length)
-        perror("send() failed");
+    uint8_t udp_buffer[a[1]];
+    uint8_t* udp_data;
 
+    memset(&buffer, 0, sizeof(buffer));
+    first_tcp_msg = (Header *)malloc(sizeof(Header));
+    first_tcp_msg->message_type = htons(0);
+    first_tcp_msg->message_length = htons(1);
+    memcpy( buffer , &first_tcp_msg ,sizeof(struct Header)) ;
+    memcpy( buffer + sizeof(struct Header), &udp_port ,sizeof(udp_port));
+   
+    data_sent = send(new_returned_client_socket, buffer, sizeof(struct Header) + sizeof(udp_port), 0);
+    if (data_sent != sizeof(struct Header) + sizeof(udp_port))
+         perror("send() failed");
+
+    
 
     // UDP Communication
     int udpSock;
@@ -107,7 +134,7 @@ int Server(Parameters *params){
     clientAddr.sin_port = htons(4000);
     clientAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    void * echoString = (void*)malloc(udp_packet_size);
+    
 
     if(bind(udpSock, (struct sockaddr *)&clientAddr, sizeof(clientAddr)) < 0){
         perror("Bind failed...");
@@ -117,22 +144,31 @@ int Server(Parameters *params){
     len = sizeof(clientAddr);
 
   
-    UDP_Message *udp_message = (UDP_Message *)malloc(sizeof(UDP_Message));
-    udp_message->buffer = (void*)malloc(udp_packet_size - 4);
+    UDP_Header *udp_header;
+    UDP_Header test;
+    
 
     int recvMsgSize;
     while(1){
         clientAddr_tmp = clientAddr;
-        if ((recvMsgSize= recvfrom(udpSock, udp_message, udp_packet_size, 0, (struct sockaddr *) &clientAddr, &len)) < 0)
+        if ((recvMsgSize= recvfrom(udpSock, udp_buffer, sizeof(udp_buffer), 0, (struct sockaddr *) &clientAddr, &len)) < 0)
             perror("recvfrom() failed");
-        std::cout << recvMsgSize  << std::endl;
-        if(ntohs(udp_message->SEQ_NO) == 1)
-            break;
-        clientAddr = clientAddr_tmp;
-    }
-    std::cout << ntohs(udp_message->SEQ_NO)  << std::endl;
 
-  //std::cout << (char*)udp_message->buffer  << std::endl;
+        udp_header = (struct UDP_Header *)udp_buffer;
+        udp_data = udp_buffer + sizeof(struct UDP_Header);
+        
+        char *are;
+        are = (char *)udp_data;
+
+        std::cout << "Data res " <<recvMsgSize  << " seq_no " << ntohs(udp_header->seq_no) <<std::endl;  //??
+        
+        std::cout << "msg " << *are   <<std::endl; 
+
+        if(*are == 'D')
+            break;
+       clientAddr = clientAddr_tmp;
+    }
+
 
     std::cout << "Connected\n";
     close(sock);
