@@ -227,51 +227,77 @@ int Client(Parameters *params){
     }
     start_timer = my_exec_time.tv_sec;
     
+    // Probably move this to server side?
+    uint8_t tcp_falloff = 200;
+    uint32_t last_sent = 0;
+    while(1){
+        if( clock_gettime( CLOCK_MONOTONIC, &my_exec_time ) == -1 ) {
+            perror( "getclock" );
+            exit( EXIT_FAILURE );
+        }   
+        if(my_exec_time.tv_nsec > last_sent + tcp_falloff){
+            // Mark cooldown timer
+            last_sent = my_exec_time.tv_nsec;
+            // Send TCP Information
+            Header *measurements_header = (Header *)malloc(sizeof(Header));
+            measurements_header->message_type = htons(0);
 
-    // while(1){
-    //     udp_header->seq_no = htons(seq_no);
-    //     memcpy( udp_buffer , &udp_header ,sizeof(struct UDP_Header));     
-    //     memcpy( udp_buffer + sizeof(struct UDP_Header), &tmp ,sizeof(tmp));
+            int measurements_info[2];
+            measurements_info[0] = parallel_data_streams;
+            measurements_info[1] = udp_packet_size;
 
-    //     if (sendto(udpSock, udp_buffer, udp_packet_size, 0, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) 
-    //         != udp_packet_size)
-    //     perror("send() sent a different number of bytes than expected");
+            measurements_header->message_length = htons(sizeof(struct Header) + sizeof(measurements_info));
+
+            memcpy( buffer , measurements_header ,sizeof(struct Header)) ;
+            memcpy( buffer + sizeof(struct Header), &measurements_info ,sizeof(measurements_info));
+
+            data_sent = send(sock, buffer, sizeof(struct Header) + sizeof(measurements_info), 0);
+        }
+    }
+    
+    if(false)
+        while(1){
+        udp_header->seq_no = htons(seq_no);
+        memcpy( udp_buffer , &udp_header ,sizeof(struct UDP_Header));     
+        memcpy( udp_buffer + sizeof(struct UDP_Header), &tmp ,sizeof(tmp));
+
+        if (sendto(udpSock, udp_buffer, udp_packet_size, 0, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) 
+            != udp_packet_size)
+        perror("send() sent a different number of bytes than expected");
 
 
-    //     if(experiment_duration != 0){
-    //         if( clock_gettime(CLOCK_MONOTONIC_RAW, &my_exec_time) == -1 ) {
-    //             perror( "clock gettime" );
-    //             exit( EXIT_FAILURE );
-    //         }
+        if(experiment_duration != 0){
+            if( clock_gettime(CLOCK_MONOTONIC_RAW, &my_exec_time) == -1 ) {
+                perror( "clock gettime" );
+                exit( EXIT_FAILURE );
+            }
 
-    //         int check_break = my_exec_time.tv_sec - start_timer;
-    //         if(check_break >= experiment_duration){
-    //             sleep(2);
-    //             //to do
-    //             udp_header->seq_no = htonl(0);
-    //             memcpy( udp_buffer , &udp_header ,sizeof(struct UDP_Header));   
-    //             tmp[0] = 'D'; 
-    //             memcpy( udp_buffer + sizeof(struct UDP_Header), &tmp ,sizeof(tmp));
+            int check_break = my_exec_time.tv_sec - start_timer;
+            if(check_break >= experiment_duration){
+                sleep(2);
+                //to do
+                udp_header->seq_no = htonl(0);
+                memcpy( udp_buffer , &udp_header ,sizeof(struct UDP_Header));   
+                tmp[0] = 'D'; 
+                memcpy( udp_buffer + sizeof(struct UDP_Header), &tmp ,sizeof(tmp));
                 
-    //             if (sendto(udpSock, udp_buffer, udp_packet_size, 0, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) 
-    //                     != udp_packet_size)
-    //                 perror("send() sent a different number of bytes than expected");
-    //             break;
-    //         }
-    //     }
+                if (sendto(udpSock, udp_buffer, udp_packet_size, 0, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) 
+                        != udp_packet_size)
+                    perror("send() sent a different number of bytes than expected");
+                break;
+            }
+        }
 
-    //     seq_no++;
-    // }
+        seq_no++;
+    }
 
-    // udp_header->seq_no = htonl(0);
-    // memcpy( udp_buffer , &udp_header ,sizeof(struct UDP_Header));   
-    // tmp[0] = 'D'; 
-    // memcpy( udp_buffer + sizeof(struct UDP_Header), &tmp ,sizeof(tmp));
-    // if (sendto(udpSock, udp_buffer, udp_packet_size, 0, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) 
-    //                     != udp_packet_size)
-    //                 perror("send() sent a different number of bytes than expected");
-
-    // std::cout << "Connected\n";
+    udp_header->seq_no = htonl(0);
+    memcpy( udp_buffer , &udp_header ,sizeof(struct UDP_Header));   
+    tmp[0] = 'D'; 
+    memcpy( udp_buffer + sizeof(struct UDP_Header), &tmp ,sizeof(tmp));
+    if (sendto(udpSock, udp_buffer, udp_packet_size, 0, (struct sockaddr *) &serverAddr, sizeof(serverAddr)) 
+                        != udp_packet_size)
+                    perror("send() sent a different number of bytes than expected");
 
     
     close(sock);

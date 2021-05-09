@@ -11,7 +11,7 @@ typedef struct Header{
 
 
 typedef struct UDP_Header{
-    uint16_t seq_no;
+    uint32_t seq_no;
 } UDP_Header;
 
 
