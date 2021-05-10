@@ -14,8 +14,21 @@
 #include "client.h"
 #include "server.h"
 #include "Parameters.h"
+#include "SocketWrapper.h"
 
-int listening_port = 4223;
+
+#define TESTPRINT ;std::cout << "test line\n";
+
+void GetTime(struct timespec *my_exec_time){
+    if( clock_gettime( CLOCK_MONOTONIC, my_exec_time) == -1 ) {
+        perror( "getclock" );
+        exit( EXIT_FAILURE );
+    }
+}
+
+int listening_port = 4331;
+SocketWrapper *tcpwrapper;
+SocketWrapper *udpwrapper;
 
 int main(int argc, char *argv[]){
 
