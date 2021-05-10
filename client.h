@@ -18,6 +18,8 @@ extern SocketWrapper *udpwrapper;
 
 void GetTime(struct timespec *my_exec_time);
 
+int CheckingNsec(long then, long now);
+
 void signal_callback_handler(int signum) {
     std::cout << "\nCaught signal. Terminating... " << std::endl;
 
@@ -25,16 +27,14 @@ void signal_callback_handler(int signum) {
     Header *header = (Header *)malloc(sizeof(Header));
     header->message_type = htons(0);
     header->message_length = htons(0);
-    int *test = (int *)malloc(sizeof(int));
-    *test = htons(2);
-    tcpwrapper->Send(header, test, sizeof(int));
+    tcpwrapper->Send(header, NULL, 0);
 
    // Terminate program
    exit(signum);
 }
 
 
-void init(Parameters *params,unsigned int parallel_data_streams,unsigned int udp_packet_size){
+void init(Parameters *params,unsigned int parallel_data_streams,unsigned int udp_packet_size,unsigned long experiment_duration_nsec){
     if(params->HasKey("-n")){
         parallel_data_streams = stoi(params->GetValue("-n"));
         assert(parallel_data_streams > 0);
@@ -43,6 +43,11 @@ void init(Parameters *params,unsigned int parallel_data_streams,unsigned int udp
     if(params->HasKey("-l")){
         udp_packet_size = stoi(params->GetValue("-l"));
         assert(udp_packet_size > 0);
+    }
+    
+    if(params->HasKey("-t")){
+        experiment_duration_nsec = stoi(params->GetValue("-t"));
+        assert(experiment_duration_nsec > 0);
     }
 
     return;
@@ -54,7 +59,7 @@ int Client(Parameters *params){
     
     uint8_t buffer[BUFFER_SIZE];
     unsigned int udp_packet_size = 256;
-    unsigned int experiment_duration = 3;
+    unsigned long experiment_duration_nsec = 10;
     unsigned int parallel_data_streams = 1;
     const char *server_ip = "147.52.19.9";
     uint8_t *data;
@@ -62,12 +67,15 @@ int Client(Parameters *params){
     int data_sent = 0;
     int sleep_before_tran = 0;
 
+    struct timespec my_exec_time;
+    struct timespec start_timer, finish_timer;
+
     // Init buffer
     for(int i = 0; i < BUFFER_SIZE; i++){
         buffer[i] = 'a';
     }
 
-    init(params,parallel_data_streams, udp_packet_size);
+    init(params,parallel_data_streams, udp_packet_size, experiment_duration_nsec);
     signal(SIGINT, signal_callback_handler);
 
     // TCP Communication
@@ -99,11 +107,29 @@ int Client(Parameters *params){
     // UDP ~~~~~~~~~~~~~
     udpwrapper = new SocketWrapper(UDP);
     udpwrapper->SetServerAddr(server_ip, *udp_port);
-    for(int i = 0; i < 500; i++){
+    bool first_message_flag = false;
+ 
+    while(1){
         UDP_Header udp_header;
         
-        sleep(1);
+        //sleep(1);
         udpwrapper->SendTo(&udp_header, buffer, BUFFER_SIZE);
+        if(first_message_flag == false){
+            first_message_flag = true;
+            GetTime(&my_exec_time);
+            start_timer = my_exec_time;
+            finish_timer = my_exec_time;
+        }else{
+            GetTime(&my_exec_time);
+            finish_timer = my_exec_time;
+        }
+
+        if(experiment_duration_nsec < (finish_timer.tv_sec - start_timer.tv_sec) + CheckingNsec(finish_timer.tv_nsec, start_timer.tv_nsec)){
+            Header *header = (Header *)malloc(sizeof(Header));
+            header->message_type = htons(0);
+            header->message_length = htons(0);
+            tcpwrapper->Send(header, NULL, 0);
+        }
 
     }
 

@@ -18,6 +18,8 @@ extern SocketWrapper *udpwrapper;
 
 void GetTime(struct timespec *my_exec_time);
 
+int CheckingNsec(long then, long now);
+
 int Server(Parameters *params){
 
     uint8_t buffer[BUFFER_SIZE];
@@ -29,7 +31,7 @@ int Server(Parameters *params){
     int data_sent = 0;
 
     struct timespec my_exec_time;
-    struct timespec start_timer;
+    struct timespec start_timer, finish_timer;
 
     // Set sin.sin_addr
     const char *server_ip = NULL;
@@ -98,9 +100,16 @@ int Server(Parameters *params){
     UDP_Header *udp_header;    
     bool first_message_flag = false;
 
+    int data_send_sum = 0;
+    int Gdata_send_sum = 0;
+    int first_seq_no = 0;
+    int lost_packet_sum = 0;
+
     while(true){
         // In case of signal exit.
         if(tcpwrapper->Poll(client_socket) == true){
+            GetTime(&my_exec_time);
+            finish_timer = my_exec_time;
             std::cout << "Caught a signal.. terminate\n";
             break;
         }
@@ -108,21 +117,30 @@ int Server(Parameters *params){
         // Only if data exist, receive them.
         if(udpwrapper->Poll(udpwrapper->GetSocket()) == true){
             temp = udpwrapper->ReceiveFrom();
-            
+            udp_header = (UDP_Header *)temp;
+
             // When the first message arrives, start the timer!
             if(first_message_flag == false){
                 first_message_flag = true;
                 GetTime(&my_exec_time);
                 start_timer = my_exec_time;
+                first_seq_no = udp_header->seq_no;
+            }else{
+                data_send_sum += udp_packet_size + 34;
+                Gdata_send_sum += udp_packet_size - 4;
+                if(first_seq_no + 1 != udp_header->seq_no)
+                    ++lost_packet_sum;
+                ++first_seq_no; 
             }
 
-            udp_header = (UDP_Header *)temp;
-            std::cout << "Seq no: " << udp_header->seq_no << std::endl;
+            memcpy(buffer, temp, BUFFER_SIZE); 
         }
-
-        memcpy(buffer, temp, BUFFER_SIZE); 
-    
     }
+
+    std::cout << "Test run for: " << finish_timer.tv_sec - start_timer.tv_sec << " sec " << start_timer.tv_nsec - finish_timer.tv_nsec << " nsec\n";
+    std::cout << "Data send: " << data_send_sum << std::endl;
+    std::cout << "GData send: " << Gdata_send_sum << std::endl;
+    std::cout << "Lost Packets: " << lost_packet_sum << std::endl;
     
     tcpwrapper->Close();
     udpwrapper->Close();

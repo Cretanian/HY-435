@@ -26,7 +26,15 @@ void GetTime(struct timespec *my_exec_time){
     }
 }
 
-int listening_port = 4331;
+int CheckingNsec(long then, long now){
+    if(now >= then)
+        return 1;
+    else
+        return 0;
+}
+
+
+int listening_port = 4332;
 SocketWrapper *tcpwrapper;
 SocketWrapper *udpwrapper;
 
