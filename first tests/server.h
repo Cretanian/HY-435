@@ -160,25 +160,25 @@ int Server(Parameters *params){
     }
     start_timer = my_exec_time.tv_sec;
 
-    // while(1){
-    //     clientAddr_tmp = clientAddr;
-    //     if ((recvMsgSize= recvfrom(udpSock, udp_buffer, sizeof(udp_buffer), 0, (struct sockaddr *) &clientAddr, &len)) < 0)
-    //         perror("recvfrom() failed");
+    while(1){
+        clientAddr_tmp = clientAddr;
+        if ((recvMsgSize= recvfrom(udpSock, udp_buffer, sizeof(udp_buffer), 0, (struct sockaddr *) &clientAddr, &len)) < 0)
+            perror("recvfrom() failed");
 
-    //     udp_header = (struct UDP_Header *)udp_buffer;
-    //     udp_data = udp_buffer + sizeof(struct UDP_Header);
+        udp_header = (struct UDP_Header *)udp_buffer;
+        udp_data = udp_buffer + sizeof(struct UDP_Header);
         
-    //     char *are;
-    //     are = (char *)udp_data;
+        char *are;
+        are = (char *)udp_data;
 
-    //     std::cout << "Data res " <<recvMsgSize  << " seq_no " << ntohs(udp_header->seq_no) <<std::endl;  //??
+        std::cout << "Data res " <<recvMsgSize  << " seq_no " << ntohs(udp_header->seq_no) <<std::endl;  //??
         
-    //     std::cout << "msg " << *are   <<std::endl; 
+        std::cout << "msg " << *are   <<std::endl; 
 
-    //     if(*are == 'D')
-    //         break;
-    //    clientAddr = clientAddr_tmp;
-    // }
+        if(*are == 'D')
+            break;
+       clientAddr = clientAddr_tmp;
+    }
 
 
     // std::cout << "Connected\n";
