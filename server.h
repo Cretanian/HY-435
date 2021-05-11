@@ -32,7 +32,8 @@ int Server(Parameters *params){
 
     struct timespec my_exec_time;
     struct timespec start_timer, finish_timer;
-
+    struct timespec jitter_start, jitter_finish;
+    
     // Set sin.sin_addr
     const char *server_ip = NULL;
     
@@ -102,8 +103,9 @@ int Server(Parameters *params){
 
     int data_send_sum = 0;
     int Gdata_send_sum = 0;
-    int first_seq_no = 0;
+    int got_seq_no = 0;
     int lost_packet_sum = 0;
+    int num_of_packets_res = -1;
 
     while(true){
         // In case of signal exit.
@@ -117,6 +119,13 @@ int Server(Parameters *params){
         // Only if data exist, receive them.
         if(udpwrapper->Poll(udpwrapper->GetSocket()) == true){
             temp = udpwrapper->ReceiveFrom();
+            GetTime(&my_exec_time);
+            ++num_of_packets_res;
+            if( (num_of_packets_res % 2) == 0)
+               jitter_finish = my_exec_time;
+            else
+               jitter_start = my_exec_time;
+
             udp_header = (UDP_Header *)temp;
 
             // When the first message arrives, start the timer!
@@ -124,13 +133,16 @@ int Server(Parameters *params){
                 first_message_flag = true;
                 GetTime(&my_exec_time);
                 start_timer = my_exec_time;
-                first_seq_no = udp_header->seq_no;
+                got_seq_no = udp_header->seq_no;
             }else{
                 data_send_sum += udp_packet_size + 34;
                 Gdata_send_sum += udp_packet_size - 4;
-                if(first_seq_no + 1 != udp_header->seq_no)
-                    ++lost_packet_sum;
-                ++first_seq_no; 
+
+                if(got_seq_no < udp_header->seq_no){
+                    if(got_seq_no + 1 != udp_header->seq_no)
+                        lost_packet_sum += udp_header->seq_no - (got_seq_no + 1);
+                    got_seq_no = udp_header->seq_no; 
+                }
             }
 
             memcpy(buffer, temp, BUFFER_SIZE); 

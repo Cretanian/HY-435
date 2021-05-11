@@ -34,7 +34,7 @@ void signal_callback_handler(int signum) {
 }
 
 
-void init(Parameters *params,unsigned int parallel_data_streams,unsigned int udp_packet_size,unsigned long experiment_duration_nsec){
+void init(Parameters *params,unsigned int parallel_data_streams,unsigned int udp_packet_size,unsigned long experiment_duration_nsec,unsigned int bandwidth){
     if(params->HasKey("-n")){
         parallel_data_streams = stoi(params->GetValue("-n"));
         assert(parallel_data_streams > 0);
@@ -50,6 +50,11 @@ void init(Parameters *params,unsigned int parallel_data_streams,unsigned int udp
         assert(experiment_duration_nsec > 0);
     }
 
+    if(params->HasKey("-b")){
+        bandwidth = stoi(params->GetValue("-b"));
+        assert(bandwidth > 0);
+    }
+
     return;
 }
 
@@ -59,6 +64,7 @@ int Client(Parameters *params){
     
     uint8_t buffer[BUFFER_SIZE];
     unsigned int udp_packet_size = 256;
+    unsigned int bandwidth = 0;
     unsigned long experiment_duration_nsec = 10;
     unsigned int parallel_data_streams = 1;
     const char *server_ip = "147.52.19.9";
@@ -66,6 +72,10 @@ int Client(Parameters *params){
     int data_recv = 0;
     int data_sent = 0;
     int sleep_before_tran = 0;
+    bool one_way_delay_flag = false;
+
+    if(params->HasKey("-d"))
+        one_way_delay_flag = true;
 
     struct timespec my_exec_time;
     struct timespec start_timer, finish_timer;
@@ -75,7 +85,7 @@ int Client(Parameters *params){
         buffer[i] = 'a';
     }
 
-    init(params,parallel_data_streams, udp_packet_size, experiment_duration_nsec);
+    init(params,parallel_data_streams, udp_packet_size, experiment_duration_nsec,bandwidth);
     signal(SIGINT, signal_callback_handler);
 
     // TCP Communication
@@ -114,13 +124,12 @@ int Client(Parameters *params){
         
         //sleep(1);
         udpwrapper->SendTo(&udp_header, buffer, BUFFER_SIZE);
+        GetTime(&my_exec_time);
         if(first_message_flag == false){
             first_message_flag = true;
-            GetTime(&my_exec_time);
             start_timer = my_exec_time;
             finish_timer = my_exec_time;
         }else{
-            GetTime(&my_exec_time);
             finish_timer = my_exec_time;
         }
 
