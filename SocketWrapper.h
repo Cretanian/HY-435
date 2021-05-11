@@ -200,9 +200,8 @@ public:
 
     bool Poll(int client_socket){
         pfd.fd = client_socket;
-        pfd.events = POLLIN;
-        std::cout << "Polling...\n";
-        int rc = poll(&pfd, 1, 200);
+        pfd.events = POLLIN;    
+        int rc = poll(&pfd, 1, 0);
 
         // if(rc == 0)
         //     std::cout << "Poll timeout.\n";
@@ -213,7 +212,6 @@ public:
         // std::cout << "End of poll.\n";
         
         if(pfd.revents & POLLIN){
-            std::cout << "Testprint\n";
             return true;
         }
         else
