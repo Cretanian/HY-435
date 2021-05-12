@@ -9,10 +9,16 @@
 #include <poll.h>
 #include <list>
 #include <cmath>
+#include <iomanip>
+#include <fstream>
 
+#include "json.hpp"
 #include "Parameters.h"
 #include "Message.h"
 #include "SocketWrapper.h"
+
+using json = nlohmann::json;
+
 
 extern int listening_port;
 extern SocketWrapper *tcpwrapper;
@@ -44,6 +50,38 @@ int Server(Parameters *params){
     // Set sin.sin_addr
     const char *server_ip = NULL;
     
+    if(params->HasKey("-f")){
+        json j;
+
+        // add a number that is stored as double (note the implicit conversion of j to an object)
+        j["pi"] = 3.141;
+
+        // add a Boolean that is stored as bool
+        j["happy"] = true;
+
+        // add a string that is stored as std::string
+        j["name"] = "Niels";
+
+        // add another null object by passing nullptr
+        j["nothing"] = nullptr;
+
+        // add an object inside the object
+        j["answer"]["everything"] = 42;
+
+        // add an array that is stored as std::vector (using an initializer list)
+        j["list"] = { 1, 0, 2 };
+
+        // add another object (using an initializer list of pairs)
+        j["object"] = { {"currency", "USD"}, {"value", 42.99} };
+
+        std::ofstream output_file(params->GetValue("-f"));
+
+        //to be removed
+        output_file << std::setw(4) << j << std::endl;
+        output_file.close();
+    }   
+
+
     if(params->HasKey("-a")){
         server_ip = params->GetValue("-a").c_str();
     }   

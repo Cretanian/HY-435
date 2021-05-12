@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <signal.h>
 #include <time.h>
+#include <iomanip>
 
 #define TESTPRINT ;std::cout << "test line\n";
 
@@ -17,6 +18,9 @@
 #include "server.h"
 #include "Parameters.h"
 #include "SocketWrapper.h"
+#include "json.hpp"
+
+
 
 void GetTime(struct timespec *my_exec_time){
     if( clock_gettime( CLOCK_MONOTONIC, my_exec_time) == -1 ) {
@@ -54,5 +58,5 @@ int main(int argc, char *argv[]){
             Server(params);
     }
 
-    // startServer();
+    return -1;   
 }

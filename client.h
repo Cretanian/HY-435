@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <algorithm>
 
 #include "Message.h"
 #include "Parameters.h"
@@ -53,8 +54,73 @@ void init(Parameters *params,unsigned int parallel_data_streams,unsigned int udp
     }
 
     if(params->HasKey("-b")){
-        bandwidth = stoi(params->GetValue("-b"));
-        assert(bandwidth > 0);
+        std::string helper = params->GetValue("-b");
+        helper.erase(remove(helper.begin(), helper.end(), ' '), helper.end());
+
+    std::cout << helper<< "\n";
+        int flag = 0;
+
+        char *num = (char *)malloc(sizeof(char) * 10);
+        int num_it = 0;
+
+        for (int i = 0; i < helper.length(); i++){
+            char c = helper.at(i);
+            
+
+            if(c == 'k' || c == 'K')
+                flag = 1;        
+            else if(c == 'm' || c == 'M')
+                flag = 2;
+            else if(c == 'g' || c == 'G')
+                flag = 3;
+            else if(c == 'b' || c == 'B')
+                break;    
+            else if(c == '0')
+               num[num_it] = c;
+            else if(c == '1')
+               num[num_it] = c;
+            else if(c == '2')
+               num[num_it] = c;
+            else if(c == '3')
+               num[num_it] = c;
+            else if(c == '4')
+               num[num_it] = c;
+            else if(c == '5')
+               num[num_it] = c;
+            else if(c == '6')
+               num[num_it] = c;
+            else if(c == '7')
+               num[num_it] = c;
+            else if(c == '8')
+               num[num_it] = c;
+            else if(c == '9')
+               num[num_it] = c;
+            else
+                flag = 4;
+            ++num_it;
+            
+        }
+
+        std::cout << num << "\n";
+        bandwidth = atoi(num);
+        bandwidth = atoi(num);
+
+        if(flag == 1)
+           bandwidth = 1024 * bandwidth;
+        else if(flag == 2)
+            bandwidth = 1048576 * bandwidth; 
+        else if(flag == 3)
+            bandwidth = 1073741824  * bandwidth;
+        else{
+            std::cout << "Bad input.\n";
+            assert(false);   
+        }
+
+       
+        std::cout << "Send " << bandwidth << " bytes in one sec\n";
+
+       
+       // assert(bandwidth > 0);
     }
 
     if(params->HasKey("-a")){
