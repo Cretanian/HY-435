@@ -150,6 +150,12 @@ int Client(Parameters *params){
     if(params->HasKey("-d"))
         one_way_delay_flag = true;
 
+    if(params->HasKey("-w")){
+        sleep_before_tran = stoi(params->GetValue("-w"));
+        assert(sleep_before_tran > 0);
+
+    }
+
     struct timespec my_exec_time;
     struct timespec start_timer, finish_timer;
 
@@ -202,7 +208,7 @@ int Client(Parameters *params){
     while(1){
         UDP_Header udp_header;
         
-        //sleep(1);
+        sleep(sleep_before_tran);
         udpwrapper->SendTo(&udp_header, buffer, BUFFER_SIZE - sizeof(UDP_Header));
         GetTime(&my_exec_time);
         // std::cout << "Seconds: " << toNanoSeconds(my_exec_time) << std::endl;
