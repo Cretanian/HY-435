@@ -49,35 +49,54 @@ int Server(Parameters *params){
     const char *server_ip = NULL;
     
     if(params->HasKey("-f")){
-        json j;
+        json stream, streams, sum, intervals, sums, k;
+        std::vector<json> c_vector;
 
-        // add a number that is stored as double (note the implicit conversion of j to an object)
-        j["pi"] = 3.141;
+        for(int i =0; i< 5; ++i){
+            stream["socket"] = 1;
+            stream["start"] = 1;
+            stream["end"] = i;
+            stream["seconds"] = i;
+            stream["bytes"] = i;
+            stream["bits_per_second"] = i;
+            stream["jitter_ms"] = i;
+            stream["lost_packets"] = i;
+            stream["packets"] = i;
+            stream["lost_percent"] = i; 
 
-        // add a Boolean that is stored as bool
-        j["happy"] = true;
+            sum["start"] = 1;
+            sum["end"] = i;
+            sum["seconds"] = i;
+            sum["bytes"] = i;
+            sum["bits_per_second"] = i;
+            sum["jitter_ms"] = i;
+            sum["lost_packets"] = i;
+            sum["packets"] = i;
+            sum["lost_percent"] = i;
 
-        // add a string that is stored as std::string
-        j["name"] = "Niels";
+            sums["sum"] = { sum };
 
-        // add another null object by passing nullptr
-        j["nothing"] = nullptr;
+            // etsi tha einai otan tha exoyme multiple
+            streams["stream"] = { stream, stream};
 
-        // add an object inside the object
-        j["answer"]["everything"] = 42;
+            k = {streams,sums};
 
-        // add an array that is stored as std::vector (using an initializer list)
-        j["list"] = { 1, 0, 2 };
+            c_vector.push_back(k);
+        }
 
-        // add another object (using an initializer list of pairs)
-        j["object"] = { {"currency", "USD"}, {"value", 42.99} };
-        j["object2"] = { {"currency", "USD"}, {"value", 42.99} };
- 
+        std::cout<<"elaaaaa " << c_vector.size() <<std::endl;
+        intervals["intervals"] = {k,k};
+        //  // add an object inside the object
+        // j["interval"]["everything"] = 42;
+
+        // // add another object (using an initializer list of pairs)
+        // j["object"] = { {"currency", "USD"}, {"value", 42.99} };
+        // j["object2"] = { {"currency", "USD"}, {"value", 42.99} };
 
         std::ofstream output_file(params->GetValue("-f"));
 
         //to be removed
-        output_file << std::setw(4) << j << std::endl;
+        output_file << std::setw(4) << intervals << std::endl;
         output_file.close();
     }   
 
