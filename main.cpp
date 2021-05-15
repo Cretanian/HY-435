@@ -45,6 +45,8 @@ int listening_port = 4332;
 SocketWrapper *tcpwrapper = NULL;
 SocketWrapper *udpwrapper = NULL;
 
+unsigned int udp_packet_size = 1460 * 3;
+
 int main(int argc, char *argv[]){
 
     auto params = new Parameters();

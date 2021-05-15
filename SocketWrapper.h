@@ -16,6 +16,8 @@
 #ifndef SOCKET_WRAPPER_H
 #define SOCKET_WRAPPER_H
 
+extern unsigned int udp_packet_size;
+
 enum SocketMode{
     TCP = 0,
     UDP = 1
@@ -29,7 +31,7 @@ private:
     uint8_t buffer[BUFFER_SIZE];
     struct pollfd pfd;
 
-    unsigned int packet_size = 1460;
+    unsigned int packet_size = udp_packet_size;
     unsigned int parallel_data_streams = 1;
     unsigned int port = 4000;
     struct sockaddr_in *server_addr;

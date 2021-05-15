@@ -25,6 +25,8 @@ extern int listening_port;
 extern SocketWrapper *tcpwrapper;
 extern SocketWrapper *udpwrapper;
 
+extern unsigned int udp_packet_size;
+
 extern bool has_one_way_delay;
 
 void GetTime(struct timespec *my_exec_time);
@@ -34,7 +36,6 @@ int CheckingNsec(long then, long now);
 int Server(Parameters *params){
 
     uint8_t buffer[BUFFER_SIZE];
-    unsigned int udp_packet_size = 1460;
     unsigned int parallel_data_streams = 1;
     unsigned int udp_port = 4001;
     unsigned int experiment_duration_sec = -1;
@@ -214,7 +215,7 @@ int Server(Parameters *params){
     json stream, streams, sum, intervals, sums, k;
     std::vector<json> c_vector;
 
-
+    TESTPRINT
     while(true){
         // In case of signal exit.
         if(tcpwrapper->Poll(client_socket) == true){
@@ -227,7 +228,7 @@ int Server(Parameters *params){
         // Only if data exist, receive them.
         if(udpwrapper->Poll(udpwrapper->GetSocket()) == true){
             stream["socket"] = udpwrapper->GetSocket();
-                
+
             temp = udpwrapper->ReceiveFrom();
             udp_header = (UDP_Header *)temp;
 
@@ -269,7 +270,6 @@ int Server(Parameters *params){
             // Interval Info Printing
             if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)interval * 1000000000){
                 interval_timer = my_exec_time;
-
 
                 auto jitter_list = info_data_interval->findJitterList();
                 auto averageJitter = info_data_interval->findAverageJitter(jitter_list);

@@ -21,6 +21,8 @@ extern int listening_port;
 extern SocketWrapper *tcpwrapper;
 extern SocketWrapper *udpwrapper;
 
+extern unsigned int udp_packet_size;
+
 // Global variables for signal to be able to access it.
 bool has_one_way_delay = false;
 std::list<unsigned long long> time_list;
@@ -106,37 +108,37 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
             char c = helper.at(i);
             
 
-        if(c == 'k' || c == 'K')
-            flag = 1;        
-        else if(c == 'm' || c == 'M')
-            flag = 2;
-        else if(c == 'g' || c == 'G')
-            flag = 3;
-        else if(c == 'b' || c == 'B')
-            break;    
-        else if(c == '0')
-            num[num_it] = c;
-        else if(c == '1')
-            num[num_it] = c;
-        else if(c == '2')
-            num[num_it] = c;
-        else if(c == '3')
-            num[num_it] = c;
-        else if(c == '4')
-            num[num_it] = c;
-        else if(c == '5')
-            num[num_it] = c;
-        else if(c == '6')
-            num[num_it] = c;
-        else if(c == '7')
-            num[num_it] = c;
-        else if(c == '8')
-            num[num_it] = c;
-        else if(c == '9')
-            num[num_it] = c;
-        else
-            flag = 4;
-        ++num_it;
+            if(c == 'k' || c == 'K')
+                flag = 1;        
+            else if(c == 'm' || c == 'M')
+                flag = 2;
+            else if(c == 'g' || c == 'G')
+                flag = 3;
+            else if(c == 'b' || c == 'B')
+                break;    
+            else if(c == '0')
+                num[num_it] = c;
+            else if(c == '1')
+                num[num_it] = c;
+            else if(c == '2')
+                num[num_it] = c;
+            else if(c == '3')
+                num[num_it] = c;
+            else if(c == '4')
+                num[num_it] = c;
+            else if(c == '5')
+                num[num_it] = c;
+            else if(c == '6')
+                num[num_it] = c;
+            else if(c == '7')
+                num[num_it] = c;
+            else if(c == '8')
+                num[num_it] = c;
+            else if(c == '9')
+                num[num_it] = c;
+            else
+                flag = 4;
+            ++num_it;
             
         }
 
@@ -176,7 +178,6 @@ int Client(Parameters *params){
     // Set basic params
     
     uint8_t buffer[BUFFER_SIZE];
-    unsigned int udp_packet_size = 1460;
     unsigned int bandwidth = -1;
     unsigned long long experiment_duration_nsec = (unsigned long long)4 * 1000000000;
     unsigned int parallel_data_streams = 1;
@@ -289,7 +290,7 @@ int Client(Parameters *params){
 
     // Calculate sleep time in ms for throttling
     unsigned int packets_per_second = bandwidth / (udp_packet_size * 8);
-    unsigned int num_of_chunks = 1000;
+    unsigned int num_of_chunks = 50;
     unsigned int chunk_size = packets_per_second / num_of_chunks;
     float sleep_interval = (1 / (float)num_of_chunks) * 1000 * 1000;
 
