@@ -23,13 +23,13 @@ enum SocketMode{
 
 class SocketWrapper{
 private:
-    int sock;
+    int sock = -1;
     SocketMode mode;
     struct sockaddr_in *sin;
     uint8_t buffer[BUFFER_SIZE];
     struct pollfd pfd;
 
-    unsigned int packet_size = 256;
+    unsigned int packet_size = 1460;
     unsigned int parallel_data_streams = 1;
     unsigned int port = 4000;
     struct sockaddr_in *server_addr;
@@ -158,8 +158,8 @@ public:
         unsigned int data_sent = send(defined_sock, buffer, sizeof(Header) + payload_size, 0);
     }
 
-    void *Receive(int client_socket){
-        int data_recv = recv(client_socket, buffer, BUFFER_SIZE, 0);
+    void *Receive(int client_socket, uint32_t payload_size){
+        int data_recv = recv(client_socket, buffer, sizeof(Header) + payload_size, 0);
         if(data_recv < 0)
             perror("Receiving data failed");
     
@@ -169,7 +169,7 @@ public:
     void SendTo(UDP_Header *header, void *payload, uint32_t payload_size){
         header->seq_no = ++seq_no;
         memcpy(buffer, header, sizeof(struct UDP_Header));
-        memcpy(buffer + sizeof(struct UDP_Header), payload, sizeof(payload_size));
+        memcpy(buffer + sizeof(struct UDP_Header), payload, sizeof(payload_size) - sizeof(UDP_Header));
 
         unsigned int sent_data;
         sent_data = sendto(sock, buffer, packet_size, 0, (struct sockaddr *)server_addr, sizeof(struct sockaddr_in));
@@ -179,7 +179,7 @@ public:
 
     void *ReceiveFrom(){
         unsigned int len = sizeof(struct sockaddr_in);
-        int data_recv = recvfrom(sock, buffer, sizeof(buffer), 0, (struct sockaddr *)sin, &len);
+        int data_recv = recvfrom(sock, buffer, packet_size, 0, (struct sockaddr *)sin, &len);
         if(data_recv < 0){
             perror("Receive from failed.");
         }
@@ -217,9 +217,30 @@ public:
         else
             return false;
     }
+    bool Poll(int client_socket, int poll_time){
+        pfd.fd = client_socket;
+        pfd.events = POLLIN;    
+        int rc = poll(&pfd, 1, poll_time);
+
+        // if(rc == 0)
+        //     std::cout << "Poll timeout.\n";
+        // else if(rc < 0)
+        //     std::cout << "Poll failed.\n";
+        
+        // std::cout << "Poll revents: " << pfd.revents << "\n";
+        // std::cout << "End of poll.\n";
+        
+        if(pfd.revents & POLLIN){
+            return true;
+        }
+        else
+            return false;
+    }
+
 
     void Close(){
-        close(sock);
+        if(sock > 0)
+            close(sock);
     }
 
     // Getters setters:
