@@ -25,6 +25,8 @@ extern int listening_port;
 extern SocketWrapper *tcpwrapper;
 extern SocketWrapper *udpwrapper;
 
+extern bool has_one_way_delay;
+
 void GetTime(struct timespec *my_exec_time);
 
 int CheckingNsec(long then, long now);
@@ -118,7 +120,7 @@ int Server(Parameters *params){
         tcpwrapper->Bind(listening_port);
     else
         tcpwrapper->Bind(server_ip, listening_port);
-    
+
     // Start listening and define backlog
     tcpwrapper->Listen(10);
     
@@ -141,7 +143,7 @@ int Server(Parameters *params){
         }
     }
 
-    void *temp = (uint8_t *)tcpwrapper->Receive(client_socket);
+    void *temp = (uint8_t *)tcpwrapper->Receive(client_socket, sizeof(int) * 5);
     memcpy(buffer, temp, BUFFER_SIZE);
 
     first_header = (struct Header *)buffer;
@@ -151,15 +153,45 @@ int Server(Parameters *params){
     init_data = (int *)data;
        
     std::cout << "messsage len:" << ntohs(first_header->message_length) << "\nParalle streams: " << init_data[0]<< "\nudp_pac_size " << init_data[1] << std::endl ;
+    udp_packet_size = init_data[1];
     experiment_duration_sec = init_data[2];
     interval = init_data[3];
+    has_one_way_delay = init_data[4];
     std::cout << "Experiment time: " << experiment_duration_sec << std::endl;
     std::cout << "Printing Interval: " << interval << std::endl;
+    std::cout << "Is one way: " << has_one_way_delay << std::endl;
 
     // Send message back to client specifing the UDP port.
     init_data[0] = udp_port;
-
     tcpwrapper->Send(client_socket, first_header, init_data, sizeof(int));
+
+    // TCP One way connection
+    if(has_one_way_delay){
+        void *payload;
+        int *oneway_data;
+        while(true){
+            if(tcpwrapper->Poll(client_socket)){
+                payload = tcpwrapper->Receive(client_socket, sizeof(int));
+                memcpy(buffer, payload, sizeof(Header) + sizeof(int));
+                data = buffer + sizeof(Header);
+                oneway_data = (int *)data;
+                int value = ntohs(oneway_data[0]);
+                
+                if(value == 1){
+                    // That means the terminating flag is 1. So terminate.
+                    std::cout << "End of one-way delay test." << std::endl;
+                    sleep(1);
+                    tcpwrapper->Close();
+                    close(client_socket);
+                    exit(EXIT_SUCCESS);
+                }
+
+                tcpwrapper->Send(client_socket, first_header, (void *)payload, sizeof(int));
+            }
+        }
+    }
+
+
 
     // UDP Communication
     std::cout << "\n\nUDP:\n";
@@ -168,7 +200,6 @@ int Server(Parameters *params){
 
     UDP_Header *udp_header;    
     bool first_message_flag = false;
-
 
     InfoData *info_data = new InfoData();
     InfoData *info_data_interval = new InfoData();
@@ -200,17 +231,18 @@ int Server(Parameters *params){
             }
             else{
                 // Increase counter
+                // if(info_data->num_of_packets < udp_header->seq_no + 1)
                 info_data->num_of_packets = udp_header->seq_no + 1;
-                info_data_interval->num_of_packets = udp_header->seq_no + 1;
+                
 
                 // Push time arrived for later calculation of jitter
                 info_data->time_arrived.push_back(toNanoSeconds(my_exec_time));
                 info_data_interval->time_arrived.push_back(toNanoSeconds(my_exec_time));
                 
                 // Capture data for data arrivede
-                info_data->data_sum += udp_packet_size + 34; // This will be used for the final printing of the whole data.
+                info_data->data_sum += udp_packet_size + 42; // This will be used for the final printing of the whole data.
                 info_data->gdata_sum += udp_packet_size - sizeof(UDP_Header);
-                info_data_interval->data_sum += udp_packet_size + 34; // This will be used for interval printing;
+                info_data_interval->data_sum += udp_packet_size + 42; // This will be used for interval printing;
 
                 // Check if package arrived off order.
                 if(info_data->prev_seq_no < udp_header->seq_no){
@@ -229,18 +261,19 @@ int Server(Parameters *params){
 
                 auto jitter_list = info_data_interval->findJitterList();
                 auto averageJitter = info_data_interval->findAverageJitter(jitter_list);
+                unsigned int total_interval_packets = info_data->num_of_packets - last_interval_seq_no;
 
                 std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
                 std::cout << "Transfer: " << ((float)info_data_interval->data_sum / (1024*1024)) << "MB" << std::endl;
                 std::cout << "Bandwidth: " << ((float)info_data_interval->data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
                 std::cout << "Jitter: " << averageJitter << " nanoseconds" << std::endl;
-                std::cout << "Lost/Total: " << info_data_interval->lost_packet_sum << " / " << info_data_interval->num_of_packets 
-                                            << " (" << ((float)info_data_interval->lost_packet_sum/(float)info_data_interval->num_of_packets)*100 << "%)" << std::endl;
+                std::cout << "Lost/Total: " << info_data_interval->lost_packet_sum << " / " << total_interval_packets 
+                                            << " (" << ((float)info_data_interval->lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
 
                 // Write json information here.
                 // mpla mpla
 
-                last_interval_seq_no = udp_header->seq_no;
+                last_interval_seq_no = info_data->num_of_packets;
 
                 delete info_data_interval; // Free memory and reset.
                 info_data_interval = new InfoData(); // Create new InfoData
@@ -263,6 +296,12 @@ int Server(Parameters *params){
     unsigned long long devination_jitter = info_data->findStandardDeviationJitter(jitter_list, mean);
     // std::cout << "Average Jitter: " << mean << std::endl;
     // std::cout << "Standard Devination of Jitter: " << devination_jitter << std::endl; 
+
+    Header *header = (Header *)malloc(sizeof(Header));
+    header->message_type = 0;
+    header->message_length = sizeof(InfoData);
+
+    tcpwrapper->Send(client_socket, header, info_data, sizeof(InfoData));
 
 
     tcpwrapper->Close();

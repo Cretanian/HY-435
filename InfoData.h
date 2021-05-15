@@ -1,10 +1,12 @@
-#ifndef INFO_DATA_H
-#define INFO_DATA_H
-
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <list>
+#include <cmath>
+#include <iomanip>
+
+#ifndef INFO_DATA_H
+#define INFO_DATA_H
 
 class InfoData{
 public:

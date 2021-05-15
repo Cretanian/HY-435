@@ -8,14 +8,22 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <algorithm>
+#include <list>
+#include <chrono>
+#include <thread>
 
 #include "Message.h"
 #include "Parameters.h"
 #include "SocketWrapper.h"
+#include "InfoData.h"
 
 extern int listening_port;
 extern SocketWrapper *tcpwrapper;
 extern SocketWrapper *udpwrapper;
+
+// Global variables for signal to be able to access it.
+bool has_one_way_delay = false;
+std::list<unsigned long long> time_list;
 
 void GetTime(struct timespec *my_exec_time);
 
@@ -24,16 +32,47 @@ int CheckingNsec(long then, long now);
 unsigned long long int toNanoSeconds(struct timespec time_exec);
 
 void signal_callback_handler(int signum) {
-    std::cout << "\nCaught signal. Terminating... " << std::endl;
+    if(has_one_way_delay){
+        // Make sure it wasnt the servers turn to send, otherwise it will block on Send.
+        if(tcpwrapper->Poll(tcpwrapper->GetSocket(), 1000)){
+            tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(int));
+        }
 
-    sleep(3);
-    Header *header = (Header *)malloc(sizeof(Header));
-    header->message_type = htons(0);
-    header->message_length = htons(0);
-    tcpwrapper->Send(header, NULL, 0);
+        // Calculate average one way delay.
+        unsigned long long sum = 0;
+        for(auto it = time_list.begin(); it != time_list.end(); it++){
+            sum += *it;
+        }   
+        sum = sum/time_list.size();
 
-   // Terminate program
-   exit(signum);
+        Header *one_way_header = (Header *)malloc(sizeof(Header));
+        one_way_header->message_type = sum;
+        one_way_header->message_length = sizeof(int);
+        
+        void *payload = malloc(sizeof(int));
+        *(int *)payload = htons(1); // Set unsigned long to 0;
+
+        tcpwrapper->Send(one_way_header, payload, sizeof(int));
+
+        std::cout << "\nOne way delay: " << sum << "\n\n";
+    }
+    else{
+        std::cout << "\nCaught signal. Terminating... " << std::endl;
+
+        sleep(3);
+        Header *header = (Header *)malloc(sizeof(Header));
+        header->message_type = htons(0);
+        header->message_length = htons(0);
+        tcpwrapper->Send(header, NULL, 0);
+    }
+    
+    // Terminate program
+    if(tcpwrapper != NULL)
+        tcpwrapper->Close();
+    if(udpwrapper != NULL)
+        udpwrapper->Close();
+
+    exit(signum);
 }
 
 
@@ -163,6 +202,11 @@ int Client(Parameters *params){
         std::cout << "Link Speed: " << link_speed << "MB" << std::endl;
     }
 
+    if(params->HasKey("-d"))
+        has_one_way_delay = true;    
+    else
+        has_one_way_delay = false;
+
     struct timespec my_exec_time;
     struct timespec start_timer, finish_timer;
 
@@ -187,11 +231,12 @@ int Client(Parameters *params){
     Header *tcp_header = (Header *)malloc(sizeof(Header));
     tcp_header->message_type = htons(0);
 
-    int f_info[4];
+    int f_info[5];
     f_info[0] = parallel_data_streams;
     f_info[1] = udp_packet_size;
     f_info[2] = experiment_duration_nsec;
     f_info[3] = interval;
+    f_info[4] = has_one_way_delay;
 
     tcp_header->message_length = htons(sizeof(struct Header) + sizeof(f_info));
 
@@ -200,13 +245,36 @@ int Client(Parameters *params){
 
     // Receive back the UDP port.
     int sock = tcpwrapper->GetSocket();
-    void *temp = tcpwrapper->Receive(sock);
+    void *temp = tcpwrapper->Receive(sock, sizeof(int));
     memcpy(buffer, temp, BUFFER_SIZE);
 
     tcp_header = (Header *)buffer;
     int *udp_port = (int *)(buffer + sizeof(Header));
     std::cout << "Udp port: " << *udp_port << std::endl;
     
+    // TCP One side delay
+    if(has_one_way_delay){
+        Header *one_way_header = (Header *)malloc(sizeof(Header));
+        one_way_header->message_type = htons(0);
+        one_way_header->message_length = htons(sizeof(int));
+        
+        void *payload = (int *)malloc(sizeof(int));
+        *(int *)payload = htons(0); // Set terminating flag to 0;
+
+        while(true){
+            GetTime(&my_exec_time);
+            unsigned long long roundtrip_start = toNanoSeconds(my_exec_time);
+
+            tcpwrapper->Send(one_way_header, (void *)payload, sizeof(int));
+            tcpwrapper->Receive(sock, sizeof(int));
+            
+            GetTime(&my_exec_time);
+            unsigned long long roundtrip_end = toNanoSeconds(my_exec_time);
+
+            time_list.push_back((roundtrip_end - roundtrip_start)/2);
+        }
+    }
+
     // UDP ~~~~~~~~~~~~~
     udpwrapper = new SocketWrapper(UDP);
     udpwrapper->SetServerAddr(server_ip, *udp_port);
@@ -219,11 +287,23 @@ int Client(Parameters *params){
     unsigned int data_sum = 0;
     unsigned int num_of_packets = 0;
 
+    // Calculate sleep time in ms for throttling
+    unsigned int packets_per_second = bandwidth / (udp_packet_size * 8);
+    float sleep_interval = (1 / (float)packets_per_second) * 1000 * 1000;
+    std::cout << "Bandwidth: " << bandwidth << std::endl;
+    std::cout << "Udp packet size in bits " << udp_packet_size*8 << std::endl;
+    std::cout << "Sleep interval: " << sleep_interval << std::endl;
+    std::cout << "Number of packets per second: " << packets_per_second << std::endl;
+
+
+
     while(1){
+        std::this_thread::sleep_for(std::chrono::microseconds((int)(sleep_interval)));
+
         UDP_Header udp_header;
     
         udpwrapper->SendTo(&udp_header, buffer, udp_packet_size);
-        data_sum += udp_packet_size + 34;
+        data_sum += udp_packet_size + 42;
         num_of_packets++;
 
         GetTime(&my_exec_time);
@@ -244,20 +324,31 @@ int Client(Parameters *params){
             header->message_type = htons(0);
             header->message_length = htons(0);
             tcpwrapper->Send(header, NULL, 0);
+            break;
         }
 
         if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)interval * 1000000000){
             interval_timer = my_exec_time;
 
             std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
-            std::cout << "Transfer: " << ((float)data_sum / (1024*1024)) << std::endl;
-            std::cout << "Bandwidth: " << ((bandwidth > 0) ? ((float)bandwidth)/(1024*1024) : link_speed) << std::endl;
+            std::cout << "Transfer: " << ((float)data_sum / (1024*1024)) << " MB" << std::endl;
+            std::cout << "Bandwidth: " << ((bandwidth > 0) ? ((float)bandwidth)/(1024*1024) : link_speed) << "Mbits" << std::endl;
             std::cout << "Num of packets: " << num_of_packets << std::endl;
 
             num_of_packets = 0;
             data_sum = 0;
         }
     }
+
+    temp = tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(Header) + sizeof(InfoData));
+    memcpy(buffer, temp, sizeof(Header) + sizeof(InfoData));
+
+    Header *end_result_header = (Header *)buffer;
+    InfoData *info_data = (InfoData *)(buffer + sizeof(Header));
+    
+    std::cout << std::endl << "~~ Results ~~" << std::endl;
+    std::cout << "Data sent: " << info_data->data_sum << std::endl;
+    
 
     udpwrapper->Close();
     tcpwrapper->Close();

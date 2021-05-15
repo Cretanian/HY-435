@@ -42,8 +42,8 @@ unsigned long long toNanoSeconds(struct timespec time_exec){
 }
 
 int listening_port = 4332;
-SocketWrapper *tcpwrapper;
-SocketWrapper *udpwrapper;
+SocketWrapper *tcpwrapper = NULL;
+SocketWrapper *udpwrapper = NULL;
 
 int main(int argc, char *argv[]){
 
