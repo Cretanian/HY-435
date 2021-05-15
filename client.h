@@ -289,16 +289,25 @@ int Client(Parameters *params){
 
     // Calculate sleep time in ms for throttling
     unsigned int packets_per_second = bandwidth / (udp_packet_size * 8);
-    float sleep_interval = (1 / (float)packets_per_second) * 1000 * 1000;
+    unsigned int num_of_chunks = 1000;
+    unsigned int chunk_size = packets_per_second / num_of_chunks;
+    float sleep_interval = (1 / (float)num_of_chunks) * 1000 * 1000;
+
     std::cout << "Bandwidth: " << bandwidth << std::endl;
     std::cout << "Udp packet size in bits " << udp_packet_size*8 << std::endl;
     std::cout << "Sleep interval: " << sleep_interval << std::endl;
     std::cout << "Number of packets per second: " << packets_per_second << std::endl;
+    std::cout << "Num of chunks: " << num_of_chunks << std::endl;
+    std::cout << "Chunk size: " << chunk_size << std::endl;
 
-
+    unsigned int chunk_counter = 0;
 
     while(1){
-        std::this_thread::sleep_for(std::chrono::microseconds((int)(sleep_interval)));
+        ++chunk_counter;
+        if(chunk_counter > chunk_size){
+            chunk_counter = 0;
+            std::this_thread::sleep_for(std::chrono::microseconds((int)(sleep_interval)));
+        }
 
         UDP_Header udp_header;
     
