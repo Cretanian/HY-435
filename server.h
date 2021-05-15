@@ -49,57 +49,58 @@ int Server(Parameters *params){
 
     // Set sin.sin_addr
     const char *server_ip = NULL;
-    
+    std::ofstream output_file;
+
     if(params->HasKey("-f")){
-        json stream, streams, sum, intervals, sums, k;
-        std::vector<json> c_vector;
+    
+        output_file.open(params->GetValue("-f"));
+        
+        // json stream, streams, sum, intervals, sums, k;
+        // std::vector<json> c_vector;
 
-        for(int i =0; i< 5; ++i){
-            stream["socket"] = 1;
-            stream["start"] = 1;
-            stream["end"] = i;
-            stream["seconds"] = i;
-            stream["bytes"] = i;
-            stream["bits_per_second"] = i;
-            stream["jitter_ms"] = i;
-            stream["lost_packets"] = i;
-            stream["packets"] = i;
-            stream["lost_percent"] = i; 
+        // for(int i =0; i< 5; ++i){
+        //     stream["socket"] = 1;
+        //     stream["start"] = 1;
+        //     stream["end"] = i;
+        //     stream["seconds"] = i;
+        //     stream["bytes"] = i;
+        //     stream["bits_per_second"] = i;
+        //     stream["jitter_ms"] = i;
+        //     stream["lost_packets"] = i;
+        //     stream["packets"] = i;
+        //     stream["lost_percent"] = i; 
 
-            sum["start"] = 1;
-            sum["end"] = i;
-            sum["seconds"] = i;
-            sum["bytes"] = i;
-            sum["bits_per_second"] = i;
-            sum["jitter_ms"] = i;
-            sum["lost_packets"] = i;
-            sum["packets"] = i;
-            sum["lost_percent"] = i;
+        //     sum["start"] = 1;
+        //     sum["end"] = i;
+        //     sum["seconds"] = i;
+        //     sum["bytes"] = i;
+        //     sum["bits_per_second"] = i;
+        //     sum["jitter_ms"] = i;
+        //     sum["lost_packets"] = i;
+        //     sum["packets"] = i;
+        //     sum["lost_percent"] = i;
 
-            sums["sum"] = { sum };
+        //     sums["sum"] = { sum };
 
-            // etsi tha einai otan tha exoyme multiple
-            streams["stream"] = { stream, stream};
+        //     // etsi tha einai otan tha exoyme multiple
+        //     streams["stream"] = { stream, stream};
 
-            k = {streams,sums};
+        //     k = {streams,sums};
 
-            c_vector.push_back(k);
-        }
+        //     c_vector.push_back(k);
+        // }
 
-        std::cout<<"elaaaaa " << c_vector.size() <<std::endl;
-        intervals["intervals"] = {k,k};
-        //  // add an object inside the object
-        // j["interval"]["everything"] = 42;
+        // intervals["intervals"] = {k,k};
+        // //  // add an object inside the object
+        // // j["interval"]["everything"] = 42;
 
-        // // add another object (using an initializer list of pairs)
-        // j["object"] = { {"currency", "USD"}, {"value", 42.99} };
-        // j["object2"] = { {"currency", "USD"}, {"value", 42.99} };
+        // // // add another object (using an initializer list of pairs)
+        // // j["object"] = { {"currency", "USD"}, {"value", 42.99} };
+        // // j["object2"] = { {"currency", "USD"}, {"value", 42.99} };
 
-        std::ofstream output_file(params->GetValue("-f"));
+        
 
         //to be removed
-        output_file << std::setw(4) << intervals << std::endl;
-        output_file.close();
     }   
 
 
@@ -183,6 +184,10 @@ int Server(Parameters *params){
                     sleep(1);
                     tcpwrapper->Close();
                     close(client_socket);
+
+                    if(params->HasKey("-f"))
+                        output_file.close();
+
                     exit(EXIT_SUCCESS);
                 }
 
@@ -206,6 +211,10 @@ int Server(Parameters *params){
     struct timespec interval_timer;
     unsigned int last_interval_seq_no = 0;
 
+    json stream, streams, sum, intervals, sums, k;
+    std::vector<json> c_vector;
+
+
     while(true){
         // In case of signal exit.
         if(tcpwrapper->Poll(client_socket) == true){
@@ -217,11 +226,13 @@ int Server(Parameters *params){
 
         // Only if data exist, receive them.
         if(udpwrapper->Poll(udpwrapper->GetSocket()) == true){
+            stream["socket"] = udpwrapper->GetSocket();
+                
             temp = udpwrapper->ReceiveFrom();
             udp_header = (UDP_Header *)temp;
 
             GetTime(&my_exec_time);
-
+            
             // When the first message arrives, start the timer!
             if(first_message_flag == false){
                 first_message_flag = true;
@@ -259,6 +270,7 @@ int Server(Parameters *params){
             if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)interval * 1000000000){
                 interval_timer = my_exec_time;
 
+
                 auto jitter_list = info_data_interval->findJitterList();
                 auto averageJitter = info_data_interval->findAverageJitter(jitter_list);
                 unsigned int total_interval_packets = info_data->num_of_packets - last_interval_seq_no;
@@ -272,8 +284,17 @@ int Server(Parameters *params){
 
                 // Write json information here.
                 // mpla mpla
+                stream["bytes"] = info_data_interval->data_sum;
+                stream["bits_per_second"] = ((float)info_data_interval->data_sum) * 8;
+                stream["jitter_ns"] = averageJitter;
+                stream["lost_packets"] = info_data_interval->lost_packet_sum;
+                stream["packets"] = total_interval_packets;
+                stream["lost_percent"] = ((float)info_data_interval->lost_packet_sum/(float)total_interval_packets)*100;
 
                 last_interval_seq_no = info_data->num_of_packets;
+
+                
+                c_vector.push_back(stream);
 
                 delete info_data_interval; // Free memory and reset.
                 info_data_interval = new InfoData(); // Create new InfoData
@@ -297,13 +318,25 @@ int Server(Parameters *params){
     // std::cout << "Average Jitter: " << mean << std::endl;
     // std::cout << "Standard Devination of Jitter: " << devination_jitter << std::endl; 
 
+
+    // for (json::iterator it = c_vector.begin(); it != c_vector.end(); ++it) {
+    //     std::cout << *it << '\n';
+    // }
+    json j_vec(c_vector);
+
+
     Header *header = (Header *)malloc(sizeof(Header));
     header->message_type = 0;
     header->message_length = sizeof(InfoData);
 
     tcpwrapper->Send(client_socket, header, info_data, sizeof(InfoData));
 
-
+    if(params->HasKey("-f")){
+        sum["interval_num"] = interval;
+        intervals["intervals"] = {sum,j_vec};
+        output_file << std::setw(4) << intervals << std::endl;
+        output_file.close();
+    }
     tcpwrapper->Close();
     udpwrapper->Close();
     close(client_socket);

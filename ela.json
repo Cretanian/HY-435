@@ -1,0 +1,45 @@
+{
+    "intervals": [
+        {
+            "interval": 1
+        },
+        [
+            {
+                "bits_per_second": 98435072.0,
+                "bytes": 12304384,
+                "jitter_ns": 122101,
+                "lost_packets": 1645,
+                "lost_percent": 16.719179153442383,
+                "packets": 9839,
+                "socket": 6
+            },
+            {
+                "bits_per_second": 98423056.0,
+                "bytes": 12302882,
+                "jitter_ns": 121614,
+                "lost_packets": 3665,
+                "lost_percent": 30.91261863708496,
+                "packets": 11856,
+                "socket": 6
+            },
+            {
+                "bits_per_second": 98447088.0,
+                "bytes": 12305886,
+                "jitter_ns": 121627,
+                "lost_packets": 3684,
+                "lost_percent": 31.017932891845703,
+                "packets": 11877,
+                "socket": 6
+            },
+            {
+                "bits_per_second": 98447088.0,
+                "bytes": 12305886,
+                "jitter_ns": 121626,
+                "lost_packets": 3675,
+                "lost_percent": 30.965621948242188,
+                "packets": 11868,
+                "socket": 6
+            }
+        ]
+    ]
+}
