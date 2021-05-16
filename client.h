@@ -21,6 +21,8 @@ extern int listening_port;
 extern SocketWrapper *tcpwrapper;
 extern SocketWrapper *udpwrapper;
 
+extern unsigned int udp_packet_size;
+
 // Global variables for signal to be able to access it.
 bool has_one_way_delay = false;
 std::list<unsigned long long> time_list;
@@ -106,37 +108,37 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
             char c = helper.at(i);
             
 
-        if(c == 'k' || c == 'K')
-            flag = 1;        
-        else if(c == 'm' || c == 'M')
-            flag = 2;
-        else if(c == 'g' || c == 'G')
-            flag = 3;
-        else if(c == 'b' || c == 'B')
-            break;    
-        else if(c == '0')
-            num[num_it] = c;
-        else if(c == '1')
-            num[num_it] = c;
-        else if(c == '2')
-            num[num_it] = c;
-        else if(c == '3')
-            num[num_it] = c;
-        else if(c == '4')
-            num[num_it] = c;
-        else if(c == '5')
-            num[num_it] = c;
-        else if(c == '6')
-            num[num_it] = c;
-        else if(c == '7')
-            num[num_it] = c;
-        else if(c == '8')
-            num[num_it] = c;
-        else if(c == '9')
-            num[num_it] = c;
-        else
-            flag = 4;
-        ++num_it;
+            if(c == 'k' || c == 'K')
+                flag = 1;        
+            else if(c == 'm' || c == 'M')
+                flag = 2;
+            else if(c == 'g' || c == 'G')
+                flag = 3;
+            else if(c == 'b' || c == 'B')
+                break;    
+            else if(c == '0')
+                num[num_it] = c;
+            else if(c == '1')
+                num[num_it] = c;
+            else if(c == '2')
+                num[num_it] = c;
+            else if(c == '3')
+                num[num_it] = c;
+            else if(c == '4')
+                num[num_it] = c;
+            else if(c == '5')
+                num[num_it] = c;
+            else if(c == '6')
+                num[num_it] = c;
+            else if(c == '7')
+                num[num_it] = c;
+            else if(c == '8')
+                num[num_it] = c;
+            else if(c == '9')
+                num[num_it] = c;
+            else
+                flag = 4;
+            ++num_it;
             
         }
 
@@ -176,9 +178,8 @@ int Client(Parameters *params){
     // Set basic params
     
     uint8_t buffer[BUFFER_SIZE];
-    unsigned int udp_packet_size = 1460;
     unsigned int bandwidth = -1;
-    unsigned long long experiment_duration_nsec = (unsigned long long)4 * 1000000000;
+    unsigned long long experiment_duration_nsec = (unsigned long long)10 * 1000000000;
     unsigned int parallel_data_streams = 1;
     char *server_ip = NULL;
     unsigned int interval = 1;
@@ -221,7 +222,7 @@ int Client(Parameters *params){
     // just for testing
     if(server_ip == NULL){
         server_ip = (char *)malloc(sizeof(char) * 40);
-        strcpy(server_ip, "147.52.19.9");
+        strcpy(server_ip, "192.168.4.51");
     }
 
     // TCP Communication
@@ -289,16 +290,33 @@ int Client(Parameters *params){
 
     // Calculate sleep time in ms for throttling
     unsigned int packets_per_second = bandwidth / (udp_packet_size * 8);
-    float sleep_interval = (1 / (float)packets_per_second) * 1000 * 1000;
+    unsigned int num_of_chunks = 300;
+    unsigned int chunk_size = packets_per_second / num_of_chunks;
+    float sleep_interval  = (1 / (float)num_of_chunks) * 1000 * 1000 * 1000;
+
     std::cout << "Bandwidth: " << bandwidth << std::endl;
     std::cout << "Udp packet size in bits " << udp_packet_size*8 << std::endl;
     std::cout << "Sleep interval: " << sleep_interval << std::endl;
     std::cout << "Number of packets per second: " << packets_per_second << std::endl;
+    std::cout << "Num of chunks: " << num_of_chunks << std::endl;
+    std::cout << "Chunk size: " << chunk_size << std::endl;
 
+    unsigned int chunk_counter = -1;
 
-
+    unsigned long long chunk_start = 0;
+	GetTime(&my_exec_time);
+	chunk_start = toNanoSeconds(my_exec_time);
     while(1){
-        std::this_thread::sleep_for(std::chrono::microseconds((int)(sleep_interval)));
+        ++chunk_counter;
+        if(chunk_counter > chunk_size){
+		GetTime(&my_exec_time);
+		unsigned long long chunk_end = toNanoSeconds(my_exec_time);
+            chunk_counter = 0;
+            std::this_thread::sleep_for(std::chrono::nanoseconds((int)(sleep_interval) - (chunk_end - chunk_start)));
+		
+		GetTime(&my_exec_time);
+		chunk_start = toNanoSeconds(my_exec_time);
+        }
 
         UDP_Header udp_header;
     
