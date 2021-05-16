@@ -53,55 +53,7 @@ int Server(Parameters *params){
     std::ofstream output_file;
 
     if(params->HasKey("-f")){
-    
         output_file.open(params->GetValue("-f"));
-        
-        // json stream, streams, sum, intervals, sums, k;
-        // std::vector<json> c_vector;
-
-        // for(int i =0; i< 5; ++i){
-        //     stream["socket"] = 1;
-        //     stream["start"] = 1;
-        //     stream["end"] = i;
-        //     stream["seconds"] = i;
-        //     stream["bytes"] = i;
-        //     stream["bits_per_second"] = i;
-        //     stream["jitter_ms"] = i;
-        //     stream["lost_packets"] = i;
-        //     stream["packets"] = i;
-        //     stream["lost_percent"] = i; 
-
-        //     sum["start"] = 1;
-        //     sum["end"] = i;
-        //     sum["seconds"] = i;
-        //     sum["bytes"] = i;
-        //     sum["bits_per_second"] = i;
-        //     sum["jitter_ms"] = i;
-        //     sum["lost_packets"] = i;
-        //     sum["packets"] = i;
-        //     sum["lost_percent"] = i;
-
-        //     sums["sum"] = { sum };
-
-        //     // etsi tha einai otan tha exoyme multiple
-        //     streams["stream"] = { stream, stream};
-
-        //     k = {streams,sums};
-
-        //     c_vector.push_back(k);
-        // }
-
-        // intervals["intervals"] = {k,k};
-        // //  // add an object inside the object
-        // // j["interval"]["everything"] = 42;
-
-        // // // add another object (using an initializer list of pairs)
-        // // j["object"] = { {"currency", "USD"}, {"value", 42.99} };
-        // // j["object2"] = { {"currency", "USD"}, {"value", 42.99} };
-
-        
-
-        //to be removed
     }   
 
 
@@ -202,6 +154,7 @@ int Server(Parameters *params){
     // UDP Communication
     std::cout << "\n\nUDP:\n";
     udpwrapper = new SocketWrapper(UDP);
+    udpwrapper->SetUDPPacketLength(udp_packet_size);
     udpwrapper->Bind(udp_port);
 
     UDP_Header *udp_header;    
@@ -304,7 +257,7 @@ int Server(Parameters *params){
     }
 
     std::cout << std::endl << "~~ Results ~~" << std::endl;
-    std::cout << "Test run for: " << finish_timer.tv_sec - start_timer.tv_sec << " sec " << start_timer.tv_nsec - finish_timer.tv_nsec << " nsec\n";
+    std::cout << "Test run for: " << finish_timer.tv_sec - start_timer.tv_sec << " sec " << std::endl;
     std::cout << "Data send: " << info_data->data_sum << std::endl;
     std::cout << "GData send: " << info_data->gdata_sum << std::endl;
     std::cout << "Lost Packets: " << info_data->lost_packet_sum << std::endl;

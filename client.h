@@ -33,30 +33,34 @@ int CheckingNsec(long then, long now);
 
 unsigned long long int toNanoSeconds(struct timespec time_exec);
 
+void handle_one_way_delay_calculation(){
+    // Make sure it wasnt the servers turn to send, otherwise it will block on Send.
+    if(tcpwrapper->Poll(tcpwrapper->GetSocket(), 1000)){
+        tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(int));
+    }
+
+    // Calculate average one way delay.
+    unsigned long long sum = 0;
+    for(auto it = time_list.begin(); it != time_list.end(); it++){
+        sum += *it;
+    }   
+    sum = sum/time_list.size();
+
+    Header *one_way_header = (Header *)malloc(sizeof(Header));
+    one_way_header->message_type = sum;
+    one_way_header->message_length = sizeof(int);
+    
+    void *payload = malloc(sizeof(int));
+    *(int *)payload = htons(1); // Set unsigned long to 0;
+
+    tcpwrapper->Send(one_way_header, payload, sizeof(int));
+
+    std::cout << "\nOne way delay: " << sum << " nanoseconds" << "\n\n";
+}
+
 void signal_callback_handler(int signum) {
     if(has_one_way_delay){
-        // Make sure it wasnt the servers turn to send, otherwise it will block on Send.
-        if(tcpwrapper->Poll(tcpwrapper->GetSocket(), 1000)){
-            tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(int));
-        }
-
-        // Calculate average one way delay.
-        unsigned long long sum = 0;
-        for(auto it = time_list.begin(); it != time_list.end(); it++){
-            sum += *it;
-        }   
-        sum = sum/time_list.size();
-
-        Header *one_way_header = (Header *)malloc(sizeof(Header));
-        one_way_header->message_type = sum;
-        one_way_header->message_length = sizeof(int);
-        
-        void *payload = malloc(sizeof(int));
-        *(int *)payload = htons(1); // Set unsigned long to 0;
-
-        tcpwrapper->Send(one_way_header, payload, sizeof(int));
-
-        std::cout << "\nOne way delay: " << sum << "\n\n";
+        handle_one_way_delay_calculation();
     }
     else{
         std::cout << "\nCaught signal. Terminating... " << std::endl;
@@ -90,7 +94,8 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
     }
     
     if(params->HasKey("-t")){
-        *experiment_duration_nsec = stoi(params->GetValue("-t"));
+        *experiment_duration_nsec = (unsigned long long)stoi(params->GetValue("-t")) * 1000 * 1000 * 1000;
+        std::cout << "Duration of experiment: " << *experiment_duration_nsec << std::endl;
         assert(*experiment_duration_nsec > 0);
     }
 
@@ -170,6 +175,9 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
         std::cout << "Interval: " << *interval << std::endl;
     }
 
+    if(params->HasKey("-p"))
+        listening_port = stoi(params->GetValue("-p"));
+
     return;
 }
 
@@ -222,7 +230,8 @@ int Client(Parameters *params){
     // just for testing
     if(server_ip == NULL){
         server_ip = (char *)malloc(sizeof(char) * 40);
-        strcpy(server_ip, "192.168.4.51");
+        // strcpy(server_ip, "192.168.4.51");
+        strcpy(server_ip, "147.52.19.9");
     }
 
     // TCP Communication
@@ -262,8 +271,13 @@ int Client(Parameters *params){
         void *payload = (int *)malloc(sizeof(int));
         *(int *)payload = htons(0); // Set terminating flag to 0;
 
-        while(true){
+        GetTime(&my_exec_time);
+        struct timespec finish_timer = my_exec_time;
+        struct timespec start_timer = my_exec_time;
+
+        while(experiment_duration_nsec > (toNanoSeconds(finish_timer) - toNanoSeconds(start_timer))){
             GetTime(&my_exec_time);
+            finish_timer = my_exec_time; 
             unsigned long long roundtrip_start = toNanoSeconds(my_exec_time);
 
             tcpwrapper->Send(one_way_header, (void *)payload, sizeof(int));
@@ -273,14 +287,18 @@ int Client(Parameters *params){
             unsigned long long roundtrip_end = toNanoSeconds(my_exec_time);
 
             time_list.push_back((roundtrip_end - roundtrip_start)/2);
+
         }
+
+        handle_one_way_delay_calculation();
+        exit(1);
     }
 
     // UDP ~~~~~~~~~~~~~
     udpwrapper = new SocketWrapper(UDP);
     udpwrapper->SetServerAddr(server_ip, *udp_port);
+    udpwrapper->SetUDPPacketLength(udp_packet_size);
     bool first_message_flag = false;
-
 
     sleep(sleep_before_tran);
     struct timespec interval_timer;
@@ -363,8 +381,10 @@ int Client(Parameters *params){
     InfoData *info_data = (InfoData *)(buffer + sizeof(Header));
     
     std::cout << std::endl << "~~ Results ~~" << std::endl;
-    std::cout << "Data sent: " << info_data->data_sum << std::endl;
-    
+    std::cout << "Test run for: " << finish_timer.tv_sec - start_timer.tv_sec << " sec " << std::endl;
+    std::cout << "Data send: " << info_data->data_sum << std::endl;
+    std::cout << "GData send: " << info_data->gdata_sum << std::endl;
+    std::cout << "Lost Packets: " << info_data->lost_packet_sum << std::endl;
 
     udpwrapper->Close();
     tcpwrapper->Close();

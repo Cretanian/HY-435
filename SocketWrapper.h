@@ -107,7 +107,7 @@ public:
             exit(EXIT_FAILURE);
         }
         if(bind(sock, (struct sockaddr *)sin, sizeof(struct sockaddr_in)) == -1){
-            perror("Erron in TCP bind 1");
+            perror("Erron in bind 1");
             exit(EXIT_FAILURE);
         }
     }
@@ -258,6 +258,9 @@ public:
         return packet_size;
     }
    
+    void SetUDPPacketLength(unsigned int packet_size){
+        this->packet_size = packet_size;
+    }
 };
 
 #endif
