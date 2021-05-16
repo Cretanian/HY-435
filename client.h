@@ -82,7 +82,7 @@ void signal_callback_handler(int signum) {
 }
 
 
-void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *udp_packet_size,unsigned long long *experiment_duration_nsec, unsigned int *bandwidth, char *server_ip, unsigned int *interval){
+void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *udp_packet_size,unsigned long long *experiment_duration_nsec, unsigned int *bandwidth, char *server_ip, float *interval){
     if(params->HasKey("-n")){
         *parallel_data_streams = stoi(params->GetValue("-n"));
         assert(*parallel_data_streams > 0);
@@ -171,7 +171,7 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
 
     if(params->HasKey("-i")){
         std::string interval_string = params->GetValue("-i");
-         *interval = stoi(interval_string);
+         *interval = stof(interval_string);
         std::cout << "Interval: " << *interval << std::endl;
     }
 
@@ -190,7 +190,7 @@ int Client(Parameters *params){
     unsigned long long experiment_duration_nsec = (unsigned long long)10 * 1000000000;
     unsigned int parallel_data_streams = 1;
     char *server_ip = NULL;
-    unsigned int interval = 1;
+    float interval = 1;
     unsigned int link_speed = 1 * (1024); // 1 GB default link speed.
     uint8_t *data;
     int data_recv = 0;
@@ -241,12 +241,11 @@ int Client(Parameters *params){
     Header *tcp_header = (Header *)malloc(sizeof(Header));
     tcp_header->message_type = htons(0);
 
-    int f_info[5];
+    int f_info[4];
     f_info[0] = parallel_data_streams;
     f_info[1] = udp_packet_size;
     f_info[2] = experiment_duration_nsec;
-    f_info[3] = interval;
-    f_info[4] = has_one_way_delay;
+    f_info[3] = has_one_way_delay;
 
     tcp_header->message_length = htons(sizeof(struct Header) + sizeof(f_info));
 
@@ -361,7 +360,7 @@ int Client(Parameters *params){
             break;
         }
 
-        if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)interval * 1000000000){
+        if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
             interval_timer = my_exec_time;
 
             std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";

@@ -39,7 +39,7 @@ int Server(Parameters *params){
     unsigned int parallel_data_streams = 1;
     unsigned int udp_port = 4001;
     unsigned int experiment_duration_sec = -1;
-    unsigned int interval = 1000;
+    float interval = 1;
     uint8_t *data;
     int data_recv = 0;
     int data_sent = 0;
@@ -62,6 +62,8 @@ int Server(Parameters *params){
     }   
     if(params->HasKey("-p"))
         listening_port = stoi(params->GetValue("-p"));
+    if(params->HasKey("-i"))
+        interval = stof(params->GetValue("-i"));
 
     // Set basic params
     uint32_t bind_ip = INADDR_ANY;
@@ -109,10 +111,8 @@ int Server(Parameters *params){
     std::cout << "messsage len:" << ntohs(first_header->message_length) << "\nParalle streams: " << init_data[0]<< "\nudp_pac_size " << init_data[1] << std::endl ;
     udp_packet_size = init_data[1];
     experiment_duration_sec = init_data[2];
-    interval = init_data[3];
-    has_one_way_delay = init_data[4];
+    has_one_way_delay = init_data[3];
     std::cout << "Experiment time: " << experiment_duration_sec << std::endl;
-    std::cout << "Printing Interval: " << interval << std::endl;
     std::cout << "Is one way: " << has_one_way_delay << std::endl;
 
     // Send message back to client specifing the UDP port.
@@ -168,7 +168,6 @@ int Server(Parameters *params){
     json stream, streams, sum, intervals, sums, k;
     std::vector<json> c_vector;
 
-    TESTPRINT
     while(true){
         // In case of signal exit.
         if(tcpwrapper->Poll(client_socket) == true){
@@ -221,7 +220,7 @@ int Server(Parameters *params){
             }
 
             // Interval Info Printing
-            if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)interval * 1000000000){
+            if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
                 interval_timer = my_exec_time;
 
                 auto jitter_list = info_data_interval->findJitterList();
