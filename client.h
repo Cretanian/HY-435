@@ -309,13 +309,12 @@ int Client(Parameters *params){
     while(1){
         ++chunk_counter;
         if(chunk_counter > chunk_size){
-		GetTime(&my_exec_time);
-		unsigned long long chunk_end = toNanoSeconds(my_exec_time);
+		    GetTime(&my_exec_time);
+		    unsigned long long chunk_end = toNanoSeconds(my_exec_time);
             chunk_counter = 0;
             std::this_thread::sleep_for(std::chrono::nanoseconds((int)(sleep_interval) - (chunk_end - chunk_start)));
-		
-		GetTime(&my_exec_time);
-		chunk_start = toNanoSeconds(my_exec_time);
+            GetTime(&my_exec_time);
+            chunk_start = toNanoSeconds(my_exec_time);
         }
 
         UDP_Header udp_header;
@@ -325,7 +324,6 @@ int Client(Parameters *params){
         num_of_packets++;
 
         GetTime(&my_exec_time);
-        // std::cout << "Seconds: " << toNanoSeconds(my_exec_time) << std::endl;
         if(first_message_flag == false){
             first_message_flag = true;
             start_timer = my_exec_time;
