@@ -21,6 +21,14 @@
 
 using json = nlohmann::json;
 
+
+json sum;
+std::vector<json> sum_vec;
+std::vector<json> intervals_vec;
+
+
+bool dont_create_file = true;
+
 extern int listening_port;
 extern SocketWrapper *tcpwrapper;
 extern SocketWrapper *udpwrapper;
@@ -42,6 +50,9 @@ unsigned long long int toNanoSeconds(struct timespec time_exec);
 int thread_printing_server(float interval, unsigned int parallel_data_streams){
     struct timespec my_exec_time;
     struct timespec interval_timer;
+
+    json threads_iteration_data;
+   
 
     GetTime(&my_exec_time);
     interval_timer = my_exec_time;
@@ -85,6 +96,24 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams){
                 std::cout << "Lost/Total: " << current_info.lost_packet_sum << " / " << total_interval_packets 
                                             << " (" << ((float)current_info.lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
 
+
+                // if(!dont_create_file){
+                //     threads_iteration_data["Port"] = ((float)threads_info_array[i]->data_sum / (1024*1024));
+                //     threads_iteration_data["Execution_Time"] = total_experiment_time;
+                //     threads_iteration_data["Total_Data send"] = ((float)threads_info_array[i]->data_sum / (1024*1024));
+                //     threads_iteration_data["Total_Goodput_send"] = info_data->gdata_sum;
+                //     threads_iteration_data["Total_Lost_Packets"] = info_data->lost_packet_sum;
+                //     threads_iteration_data["Total_packets_received"] = info_data->num_of_packets;
+                //     threads_iteration_data["Throuput"] = info_data->data_sum / (experiment_duration_sec/1000000000);
+                //     threads_iteration_data["Average_Jitter"] = mean;
+                //     threads_iteration_data["Standard_Devination_of_Jitter"] = devination_jitter;          
+
+                //     intervals_vec.get_value(i).push_back(threads_iteration_data);
+
+                // }
+
+
+
                 prev_info_array[i]->Copy(*threads_info_array[i]);
             }
         }
@@ -96,6 +125,7 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams){
     std::cout << "\n\n";
     std::cout << "Experiment Total time: " << total_experiment_time << " nanoseconds.\n";
     std::cout << "~~~~ Results ~~~~\n";
+
     for(int i = 0; i < parallel_data_streams; i++){
         std::cout << "~~~~~~~~~~~~~" << std::endl;
         std::cout << "Stream [" << i << "]:" << std::endl; 
@@ -110,6 +140,21 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams){
         std::cout << "Jitter Deviation: " << threads_info_array[i]->jitter_deviation << " nanosecond" << std::endl;
         std::cout << "Lost/Total: " << threads_info_array[i]->lost_packet_sum << " / " << threads_info_array[i]->num_of_packets 
                                     << " (" << ((float)threads_info_array[i]->lost_packet_sum/(float)threads_info_array[i]->num_of_packets)*100 << "%)" << std::endl;
+
+       
+        // if(!dont_create_file){
+        //     sum["Port"] = ((float)threads_info_array[i]->data_sum / (1024*1024));
+        //     sum["Execution_Time"] = total_experiment_time;
+        //     sum["Total_Data send"] = ((float)threads_info_array[i]->data_sum / (1024*1024));
+        //     sum["Total_Goodput_send"] = info_data->gdata_sum;
+        //     sum["Total_Lost_Packets"] = info_data->lost_packet_sum;
+        //     sum["Total_packets_received"] = info_data->num_of_packets;
+        //     sum["Throuput"] = info_data->data_sum / (experiment_duration_sec/1000000000);
+        //     sum["Average_Jitter"] = mean;
+        //     sum["Standard_Devination_of_Jitter"] = devination_jitter;          
+
+        //     sum_vec.push_back(sum);
+        // }
 
     }
 
@@ -192,20 +237,23 @@ int Server(Parameters *params){
 
     struct timespec my_exec_time;
 
+
     // Set sin.sin_addr
     const char *server_ip = NULL;
+
     std::ofstream output_file;
 
     if(params->HasKey("-f")){
         output_file.open(params->GetValue("-f"));
-    }   
+        dont_create_file = false;
+    }
 
-
-    if(params->HasKey("-a")){
+    if(params->HasKey("-a"))
         server_ip = params->GetValue("-a").c_str();
-    }   
+
     if(params->HasKey("-p"))
         listening_port = stoi(params->GetValue("-p"));
+
     if(params->HasKey("-i"))
         interval = stof(params->GetValue("-i"));
 
@@ -258,6 +306,8 @@ int Server(Parameters *params){
     experiment_duration_sec = init_data[2];
     has_one_way_delay = init_data[3];
 
+
+
     // Print them out for good measure
     std::cout << "Parallel Streams: " << parallel_data_streams << std::endl;;
     std::cout << "Udp Packet Size: " << udp_packet_size << std::endl;
@@ -304,8 +354,14 @@ int Server(Parameters *params){
 
     // Allocate InfoData memory
     threads_info_array = (InfoData **)malloc(sizeof(InfoData *) * parallel_data_streams);
-    for(int i = 0; i < parallel_data_streams; i++)
+    for(int i = 0; i < parallel_data_streams; i++){
         threads_info_array[i] = NULL;
+        std::vector<json> tmp;
+        intervals_vec.push_back(tmp);
+    }
+
+std::cout <<"ELAAAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"<< intervals_vec.size() <<std::endl;
+
 
     // Create printing thread
     std::thread printing_t(thread_printing_server, interval, parallel_data_streams);
@@ -356,6 +412,21 @@ int Server(Parameters *params){
         threads_info_array[i]->NTOH();
     }
 
+
+    if(params->HasKey("-f")){
+        //if doesnt work, for get all val and then create new
+        json j_vec(intervals_vec);
+        json final_sum(sum_vec);
+        json sums, intro,intervals;
+        
+        intro["interval"] = interval;      
+        sums["sum_intervals"] ={final_sum};
+
+        intervals["intervals"] = {intro,j_vec, sums};
+        output_file << std::setw(4) << intervals << std::endl;
+    }
+
+    output_file.close();
     tcpwrapper->Close();
     
     std::cout << "\n\n";
