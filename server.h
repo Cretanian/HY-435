@@ -11,6 +11,7 @@
 #include <cmath>
 #include <iomanip>
 #include <fstream>
+#include <thread>
 
 #include "json.hpp"
 #include "Parameters.h"
@@ -20,18 +21,163 @@
 
 using json = nlohmann::json;
 
-
 extern int listening_port;
 extern SocketWrapper *tcpwrapper;
 extern SocketWrapper *udpwrapper;
-
 extern unsigned int udp_packet_size;
-
 extern bool has_one_way_delay;
 
-void GetTime(struct timespec *my_exec_time);
+extern InfoData **threads_info_array; //Array of InfoData pointers
 
+// Global, shared variable to indicate the end of the experiment.
+extern bool is_over;
+extern bool start_flag;
+extern struct timespec start_time;
+extern struct timespec end_time;
+
+void GetTime(struct timespec *my_exec_time);
 int CheckingNsec(long then, long now);
+unsigned long long int toNanoSeconds(struct timespec time_exec);
+
+int thread_printing_server(float interval, unsigned int parallel_data_streams){
+    struct timespec my_exec_time;
+    struct timespec interval_timer;
+
+    GetTime(&my_exec_time);
+    interval_timer = my_exec_time;
+
+    // Prepare info data placeholders to subtract from the newer ones.
+    InfoData **prev_info_array = (InfoData **)malloc(sizeof(InfoData *) * parallel_data_streams);
+    for(int i = 0; i < parallel_data_streams; i++)
+        prev_info_array[i] = new InfoData();
+
+    // For lost/total
+    unsigned int *last_interval_seq_no = (unsigned int *)malloc(sizeof(unsigned int) * parallel_data_streams);
+    for(int i = 0; i < parallel_data_streams; i++)
+        last_interval_seq_no[i] = 0;
+
+    while(start_flag = false){
+        // Spin to eternal nothingness
+    }
+
+    // Interval Info Printing
+    while(is_over == false){
+        GetTime(&my_exec_time);
+        if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
+            interval_timer = my_exec_time;
+
+            std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
+            for(int i = 0; i < parallel_data_streams; i++){
+                if(threads_info_array[i] == NULL)
+                    continue;
+
+                InfoData current_info = *threads_info_array[i] - *prev_info_array[i];
+
+                std::cout << "~~~~~~~~~~~~~" << std::endl;
+                std::cout << "Stream [" << i << "]:" << std::endl; 
+                auto jitter_list = current_info.findJitterList();
+                auto averageJitter = current_info.findAverageJitter(jitter_list);
+                unsigned int total_interval_packets = current_info.num_of_packets;
+
+                std::cout << "Transfer: " << ((float)current_info.data_sum / (1024*1024)) << "MB" << std::endl;
+                std::cout << "Bandwidth: " << ((float)current_info.data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
+                std::cout << "Jitter: " << averageJitter << " nanoseconds" << std::endl;
+                std::cout << "Lost/Total: " << current_info.lost_packet_sum << " / " << total_interval_packets 
+                                            << " (" << ((float)current_info.lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
+
+                prev_info_array[i]->Copy(*threads_info_array[i]);
+            }
+        }
+    } 
+        
+    unsigned long long total_experiment_time = toNanoSeconds(end_time) - toNanoSeconds(start_time);
+    float total_experiment_float = 1;
+
+    std::cout << "\n\n";
+    std::cout << "Experiment Total time: " << total_experiment_time << " nanoseconds.\n";
+    std::cout << "~~~~ Results ~~~~\n";
+    for(int i = 0; i < parallel_data_streams; i++){
+        std::cout << "~~~~~~~~~~~~~" << std::endl;
+        std::cout << "Stream [" << i << "]:" << std::endl; 
+
+        auto jitter_list = threads_info_array[i]->findJitterList();
+        auto averageJitter = threads_info_array[i]->findAverageJitter(jitter_list);
+
+
+        std::cout << "Transfer: " << ((float)threads_info_array[i]->data_sum / (1024*1024)) << "MB" << std::endl;
+        std::cout << "Bandwidth: " << ((float)threads_info_array[i]->data_sum) * 8 / (1024*1024) / total_experiment_float << "Mbits/sec" << std::endl;
+        std::cout << "Jitter Average: " << threads_info_array[i]->jitter_average << " nanoseconds" << std::endl;
+        std::cout << "Jitter Deviation: " << threads_info_array[i]->jitter_deviation << " nanosecond" << std::endl;
+        std::cout << "Lost/Total: " << threads_info_array[i]->lost_packet_sum << " / " << threads_info_array[i]->num_of_packets 
+                                    << " (" << ((float)threads_info_array[i]->lost_packet_sum/(float)threads_info_array[i]->num_of_packets)*100 << "%)" << std::endl;
+
+    }
+
+    return 1;
+}
+
+int thread_udp_server(int id, int port){
+    // std::cout << "\n\nUDP Thread with ID: " << id << " and port: " << port << "\n";
+    SocketWrapper *wrapper = new SocketWrapper(UDP);
+    wrapper->SetUDPPacketLength(udp_packet_size);
+    wrapper->Bind(port);
+
+    UDP_Header *udp_header;    
+    bool first_message_flag = false;
+
+    void *temp;
+    struct timespec my_exec_time;
+
+    threads_info_array[id] = new InfoData();
+    InfoData *info_data = threads_info_array[id];
+    assert(info_data != NULL);
+
+    while(start_flag = false){
+        // Spin to eternal nothingness
+    }
+
+    while(is_over == false){
+        // Only if data exist, receive them.
+        if(wrapper->Poll(wrapper->GetSocket()) == true){
+            temp = wrapper->ReceiveFrom();
+            udp_header = (UDP_Header *)temp;
+
+            GetTime(&my_exec_time);
+            
+            // When the first message arrives, start the timer!
+            if(first_message_flag == false){
+                first_message_flag = true;
+                info_data->prev_seq_no = udp_header->seq_no;
+            }
+            else{
+                // Increase counter
+                // if(info_data->num_of_packets < udp_header->seq_no + 1)
+                info_data->num_of_packets = udp_header->seq_no + 1;
+                
+                // Push time arrived for later calculation of jitter
+                info_data->time_arrived.push_back(toNanoSeconds(my_exec_time));
+                
+                // Capture data for data arrivede
+                info_data->data_sum += udp_packet_size + 42; // This will be used for the final printing of the whole data.
+                info_data->gdata_sum += udp_packet_size - sizeof(UDP_Header);
+
+                // Check if package arrived off order.
+                if(info_data->prev_seq_no < udp_header->seq_no){
+                    if(info_data->prev_seq_no + 1 != udp_header->seq_no){
+                        info_data->lost_packet_sum += udp_header->seq_no - (info_data->prev_seq_no + 1);
+                    }
+                    
+                    info_data->prev_seq_no = udp_header->seq_no; 
+                }   
+            }
+        }
+    }
+
+    wrapper->Close();
+
+    return 1;
+}
+
 
 int Server(Parameters *params){
 
@@ -45,8 +191,6 @@ int Server(Parameters *params){
     int data_sent = 0;
 
     struct timespec my_exec_time;
-    struct timespec start_timer, finish_timer;
-    struct timespec jitter_start, jitter_finish;
 
     // Set sin.sin_addr
     const char *server_ip = NULL;
@@ -108,10 +252,15 @@ int Server(Parameters *params){
     int *init_data;
     init_data = (int *)data;
        
-    std::cout << "messsage len:" << ntohs(first_header->message_length) << "\nParalle streams: " << init_data[0]<< "\nudp_pac_size " << init_data[1] << std::endl ;
+    // Copy data from buffer to variables.
+    parallel_data_streams = init_data[0];
     udp_packet_size = init_data[1];
     experiment_duration_sec = init_data[2];
     has_one_way_delay = init_data[3];
+
+    // Print them out for good measure
+    std::cout << "Parallel Streams: " << parallel_data_streams << std::endl;;
+    std::cout << "Udp Packet Size: " << udp_packet_size << std::endl;
     std::cout << "Experiment time: " << experiment_duration_sec << std::endl;
     std::cout << "Is one way: " << has_one_way_delay << std::endl;
 
@@ -149,149 +298,67 @@ int Server(Parameters *params){
         }
     }
 
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // zoumi
 
+    // Allocate InfoData memory
+    threads_info_array = (InfoData **)malloc(sizeof(InfoData *) * parallel_data_streams);
+    for(int i = 0; i < parallel_data_streams; i++)
+        threads_info_array[i] = NULL;
 
-    // UDP Communication
-    std::cout << "\n\nUDP:\n";
-    udpwrapper = new SocketWrapper(UDP);
-    udpwrapper->SetUDPPacketLength(udp_packet_size);
-    udpwrapper->Bind(udp_port);
+    // Create printing thread
+    std::thread printing_t(thread_printing_server, interval, parallel_data_streams);
 
-    UDP_Header *udp_header;    
-    bool first_message_flag = false;
+    // Create udp threads.
+    std::list<std::thread *> udp_threads;
+    for(int i = 0; i < parallel_data_streams; i++){
+        std::thread *udp_server_t = new std::thread(thread_udp_server, i, udp_port + i);
+        udp_threads.push_back(udp_server_t);
+    }
 
-    InfoData *info_data = new InfoData();
-    InfoData *info_data_interval = new InfoData();
-    struct timespec interval_timer;
-    unsigned int last_interval_seq_no = 0;
-
-    json stream, streams, sum, intervals, sums, k;
-    std::vector<json> c_vector;
-
+    // Receive starting signal and start clock.
+    // Do TCP thread work.
     while(true){
-        // In case of signal exit.
-        if(tcpwrapper->Poll(client_socket) == true){
-            GetTime(&my_exec_time);
-            finish_timer = my_exec_time;
-            std::cout << "Caught a signal.. terminate\n";
+        if(tcpwrapper->Poll(client_socket) == true){ //Signal to terminate the experiment
+            tcpwrapper->Receive(client_socket, sizeof(int));
+            GetTime(&start_time);
+            start_flag = true;
             break;
         }
+    }
 
-        // Only if data exist, receive them.
-        if(udpwrapper->Poll(udpwrapper->GetSocket()) == true){
-            stream["socket"] = udpwrapper->GetSocket();
-
-            temp = udpwrapper->ReceiveFrom();
-            udp_header = (UDP_Header *)temp;
-
-            GetTime(&my_exec_time);
-            
-            // When the first message arrives, start the timer!
-            if(first_message_flag == false){
-                first_message_flag = true;
-                start_timer = my_exec_time;
-                info_data->prev_seq_no = udp_header->seq_no;
-                interval_timer = start_timer;
-            }
-            else{
-                // Increase counter
-                // if(info_data->num_of_packets < udp_header->seq_no + 1)
-                info_data->num_of_packets = udp_header->seq_no + 1;
-                
-
-                // Push time arrived for later calculation of jitter
-                info_data->time_arrived.push_back(toNanoSeconds(my_exec_time));
-                info_data_interval->time_arrived.push_back(toNanoSeconds(my_exec_time));
-                
-                // Capture data for data arrivede
-                info_data->data_sum += udp_packet_size + 42; // This will be used for the final printing of the whole data.
-                info_data->gdata_sum += udp_packet_size - sizeof(UDP_Header);
-                info_data_interval->data_sum += udp_packet_size + 42; // This will be used for interval printing;
-
-                // Check if package arrived off order.
-                if(info_data->prev_seq_no < udp_header->seq_no){
-                    if(info_data->prev_seq_no + 1 != udp_header->seq_no){
-                        info_data->lost_packet_sum += udp_header->seq_no - (info_data->prev_seq_no + 1);
-                        info_data_interval->lost_packet_sum += udp_header->seq_no - (info_data->prev_seq_no + 1);
-                    }
-                    
-                    info_data->prev_seq_no = udp_header->seq_no; 
-                }
-            }
-
-            // Interval Info Printing
-            if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
-                interval_timer = my_exec_time;
-
-                auto jitter_list = info_data_interval->findJitterList();
-                auto averageJitter = info_data_interval->findAverageJitter(jitter_list);
-                unsigned int total_interval_packets = info_data->num_of_packets - last_interval_seq_no;
-
-                std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
-                std::cout << "Transfer: " << ((float)info_data_interval->data_sum / (1024*1024)) << "MB" << std::endl;
-                std::cout << "Bandwidth: " << ((float)info_data_interval->data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
-                std::cout << "Jitter: " << averageJitter << " nanoseconds" << std::endl;
-                std::cout << "Lost/Total: " << info_data_interval->lost_packet_sum << " / " << total_interval_packets 
-                                            << " (" << ((float)info_data_interval->lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
-
-                // Write json information here.
-                // mpla mpla
-                stream["bytes"] = info_data_interval->data_sum;
-                stream["bits_per_second"] = ((float)info_data_interval->data_sum) * 8;
-                stream["jitter_ns"] = averageJitter;
-                stream["lost_packets"] = info_data_interval->lost_packet_sum;
-                stream["packets"] = total_interval_packets;
-                stream["lost_percent"] = ((float)info_data_interval->lost_packet_sum/(float)total_interval_packets)*100;
-
-                last_interval_seq_no = info_data->num_of_packets;
-
-                
-                c_vector.push_back(stream);
-
-                delete info_data_interval; // Free memory and reset.
-                info_data_interval = new InfoData(); // Create new InfoData
-            }
+    // Do TCP thread work.
+    while(true){
+        if(tcpwrapper->Poll(client_socket) == true){ //Signal to terminate the experiment
+            tcpwrapper->Receive(client_socket, sizeof(int));
+            std::cout << "\n\nTerminating signal caught.\n";
+            GetTime(&end_time);
+            is_over = true;
+            break;
         }
+    }
+    std::cout << "Join the threads\n";
 
+    for(auto it = udp_threads.begin(); it != udp_threads.end(); it++){
+        (*it)->join();
+    }
+    printing_t.join();
+
+    // Send total data back
+    Header header;
+    for(int i = 0; i < parallel_data_streams; i++){
+        header.message_type = 0;
+        header.message_length = sizeof(InfoData);
+
+        threads_info_array[i]->HTON();
+        tcpwrapper->Send(client_socket, &header, threads_info_array[i], sizeof(InfoData));
+        threads_info_array[i]->NTOH();
     }
 
-    std::cout << std::endl << "~~ Results ~~" << std::endl;
-    std::cout << "Test run for: " << finish_timer.tv_sec - start_timer.tv_sec << " sec " << std::endl;
-    std::cout << "Data send: " << info_data->data_sum << std::endl;
-    std::cout << "GData send: " << info_data->gdata_sum << std::endl;
-    std::cout << "Lost Packets: " << info_data->lost_packet_sum << std::endl;
-    std::cout << "Total packets received: " << info_data->num_of_packets << std::endl;
-
-    std::cout << "Throuput: " << info_data->data_sum / (experiment_duration_sec/1000000000) << std::endl;
-
-    std::list<unsigned long long> jitter_list = info_data->findJitterList();
-    unsigned long long mean = info_data->findAverageJitter(jitter_list);
-    unsigned long long devination_jitter = info_data->findStandardDeviationJitter(jitter_list, mean);
-    // std::cout << "Average Jitter: " << mean << std::endl;
-    // std::cout << "Standard Devination of Jitter: " << devination_jitter << std::endl; 
-
-
-    // for (json::iterator it = c_vector.begin(); it != c_vector.end(); ++it) {
-    //     std::cout << *it << '\n';
-    // }
-    json j_vec(c_vector);
-
-
-    Header *header = (Header *)malloc(sizeof(Header));
-    header->message_type = 0;
-    header->message_length = sizeof(InfoData);
-
-    tcpwrapper->Send(client_socket, header, info_data, sizeof(InfoData));
-
-    if(params->HasKey("-f")){
-        sum["interval_num"] = interval;
-        intervals["intervals"] = {sum,j_vec};
-        output_file << std::setw(4) << intervals << std::endl;
-        output_file.close();
-    }
     tcpwrapper->Close();
-    udpwrapper->Close();
-    close(client_socket);
     
+    std::cout << "\n\n";
+
     return -1;
 }

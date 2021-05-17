@@ -1,7 +1,7 @@
 #ifndef HEADER_H
 #define HEADER_H
 
-#define BUFFER_SIZE  4500 
+#define BUFFER_SIZE  (1460*5)
 
 
 typedef struct Header{

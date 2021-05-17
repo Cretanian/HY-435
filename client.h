@@ -20,18 +20,155 @@
 extern int listening_port;
 extern SocketWrapper *tcpwrapper;
 extern SocketWrapper *udpwrapper;
-
 extern unsigned int udp_packet_size;
 
 // Global variables for signal to be able to access it.
 bool has_one_way_delay = false;
 std::list<unsigned long long> time_list;
 
+// Info Data for parallel streams
+extern InfoData **threads_info_array;
+
+extern bool is_over;
+extern bool start_flag;
+extern struct timespec start_time;
+extern struct timespec end_time;
+
 void GetTime(struct timespec *my_exec_time);
-
 int CheckingNsec(long then, long now);
-
 unsigned long long int toNanoSeconds(struct timespec time_exec);
+
+int thread_printing_client(float interval, unsigned int parallel_data_streams){
+    struct timespec my_exec_time;
+    struct timespec interval_timer;
+
+    GetTime(&my_exec_time);
+    interval_timer = my_exec_time;
+
+    // Prepare info data placeholders to subtract from the newer ones.
+    InfoData **prev_info_array = (InfoData **)malloc(sizeof(InfoData *) * parallel_data_streams);
+    for(int i = 0; i < parallel_data_streams; i++)
+        prev_info_array[i] = new InfoData();
+
+    while(start_flag == false){
+        // Spin to eternal nothingness
+    }
+
+    // Interval Info Printing
+    while(is_over == false){
+        GetTime(&my_exec_time);
+        if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
+            interval_timer = my_exec_time;
+
+            std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
+            for(int i = 0; i < parallel_data_streams; i++){
+                if(threads_info_array[i] == NULL)
+                    continue;
+
+                InfoData current_info = *threads_info_array[i] - *prev_info_array[i];
+
+                std::cout << "~~~~~~~~~~~~~" << std::endl;
+                std::cout << "Stream [" << i << "]:" << std::endl; 
+                auto jitter_list = current_info.findJitterList();
+                auto averageJitter = current_info.findAverageJitter(jitter_list);
+                unsigned int total_interval_packets = current_info.num_of_packets;
+
+                std::cout << "Transfer: " << ((float)current_info.data_sum / (1024*1024)) << "MB" << std::endl;
+                std::cout << "Bandwidth: " << ((float)current_info.data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
+
+                prev_info_array[i]->Copy(*threads_info_array[i]);
+            }
+
+            // delete info_data_interval; // Free memory and reset.
+            // info_data_interval = new InfoData(); // Create new InfoData
+        }
+    } 
+
+    std::cout << "\n\n";
+    std::cout << "Experiment Total time: " << toNanoSeconds(end_time) - toNanoSeconds(start_time) << " nanoseconds.\n";
+    std::cout << "~~~~ Sender Results ~~~~\n";
+    for(int i = 0; i < parallel_data_streams; i++){
+        std::cout << "~~~~~~~~~~~~~" << std::endl;
+        std::cout << "Stream [" << i << "]:" << std::endl; 
+
+        auto jitter_list = threads_info_array[i]->findJitterList();
+        auto averageJitter = threads_info_array[i]->findAverageJitter(jitter_list);
+        unsigned int total_interval_packets = threads_info_array[i]->num_of_packets;
+
+        std::cout << "Transfer: " << ((float)threads_info_array[i]->data_sum / (1024*1024)) << "MB" << std::endl;
+        std::cout << "Bandwidth: " << ((float)threads_info_array[i]->data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
+
+        prev_info_array[i]->Copy(*threads_info_array[i]);
+    }
+
+    return 1;
+}
+
+int thread_udp_client(int id, char *server_ip, int port, unsigned long long bandwidth, unsigned long long experiment_duration_nsec){    
+    // Instantiate my personal info data and buffer;
+    threads_info_array[id] = new InfoData();
+    InfoData *info_data = threads_info_array[id];
+
+    uint8_t buffer[BUFFER_SIZE];
+
+    // Prepare wrapper params
+    SocketWrapper *wrapper = new SocketWrapper(UDP);
+    wrapper->SetServerAddr(server_ip, port);
+    wrapper->SetUDPPacketLength(udp_packet_size);
+    bool first_message_flag = false;
+
+    // Calculate sleep time in ms for throttling
+    unsigned int packets_per_second = bandwidth / (udp_packet_size * 8);
+    unsigned int num_of_chunks = 300;
+    unsigned int chunk_size = packets_per_second / num_of_chunks;
+    float sleep_interval  = (1 / (float)num_of_chunks) * 1000 * 1000 * 1000;
+
+    unsigned int chunk_counter = -1;
+    unsigned long long chunk_start = 0;
+
+    struct timespec my_exec_time;
+    struct timespec start_timer, finish_timer;
+
+    while(start_flag == false){
+        // Spin to eternal nothingness
+    }
+
+	GetTime(&my_exec_time);
+	chunk_start = toNanoSeconds(my_exec_time);
+    while(1){
+        ++chunk_counter;
+        if(chunk_counter > chunk_size){
+		    GetTime(&my_exec_time);
+		    unsigned long long chunk_end = toNanoSeconds(my_exec_time);
+            chunk_counter = 0;
+            std::this_thread::sleep_for(std::chrono::nanoseconds((int)(sleep_interval) - (chunk_end - chunk_start)));
+            GetTime(&my_exec_time);
+            chunk_start = toNanoSeconds(my_exec_time);
+        }
+
+        UDP_Header udp_header; // Header is filled in SendTo
+        wrapper->SendTo(&udp_header, buffer, udp_packet_size);
+
+        info_data->data_sum += udp_packet_size + 42;
+        info_data->num_of_packets++;
+
+        GetTime(&my_exec_time);
+        if(first_message_flag == false){
+            first_message_flag = true;
+            start_timer = my_exec_time;
+            finish_timer = my_exec_time;
+        }else{
+            finish_timer = my_exec_time;
+        }
+
+        // Terminate after experiment time.
+        if(experiment_duration_nsec < (toNanoSeconds(finish_timer) - toNanoSeconds(start_timer))){
+            break;
+        }
+    }
+
+    return 1;
+}
 
 void handle_one_way_delay_calculation(){
     // Make sure it wasnt the servers turn to send, otherwise it will block on Send.
@@ -65,7 +202,7 @@ void signal_callback_handler(int signum) {
     else{
         std::cout << "\nCaught signal. Terminating... " << std::endl;
 
-        sleep(3);
+        sleep(1);
         Header *header = (Header *)malloc(sizeof(Header));
         header->message_type = htons(0);
         header->message_length = htons(0);
@@ -80,7 +217,6 @@ void signal_callback_handler(int signum) {
 
     exit(signum);
 }
-
 
 void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *udp_packet_size,unsigned long long *experiment_duration_nsec, unsigned int *bandwidth, char *server_ip, float *interval){
     if(params->HasKey("-n")){
@@ -148,6 +284,17 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
         }
 
         *bandwidth = atoi(num);
+        assert(*bandwidth > 0);
+        if(*bandwidth < 330)
+            *udp_packet_size = 1460 * 3;
+        else if(*bandwidth < 530)
+            *udp_packet_size = 1460 * 3.3;
+        else if(*bandwidth < 700)
+            *udp_packet_size = 1460 * 3.6;
+        else if(*bandwidth < 800)
+            *udp_packet_size = 1460 * 4;
+        else
+            *udp_packet_size = 1460 * 4.3; 
 
         if(flag == 1)
             *bandwidth = *bandwidth * 1024;
@@ -293,100 +440,65 @@ int Client(Parameters *params){
         exit(1);
     }
 
-    // UDP ~~~~~~~~~~~~~
-    udpwrapper = new SocketWrapper(UDP);
-    udpwrapper->SetServerAddr(server_ip, *udp_port);
-    udpwrapper->SetUDPPacketLength(udp_packet_size);
-    bool first_message_flag = false;
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // zoumi
 
-    sleep(sleep_before_tran);
-    struct timespec interval_timer;
+    // Initiate InfoData for parallel streams case
+    threads_info_array = (InfoData **)malloc(sizeof(InfoData *) * parallel_data_streams);
+    for(int i = 0; i < parallel_data_streams; i++)
+        threads_info_array[i] = NULL;
 
-    unsigned int data_sum = 0;
-    unsigned int num_of_packets = 0;
+    // Create Printing Thread.
+    std::thread printing_t(thread_printing_client, interval, parallel_data_streams);
 
-    // Calculate sleep time in ms for throttling
-    unsigned int packets_per_second = bandwidth / (udp_packet_size * 8);
-    unsigned int num_of_chunks = 300;
-    unsigned int chunk_size = packets_per_second / num_of_chunks;
-    float sleep_interval  = (1 / (float)num_of_chunks) * 1000 * 1000 * 1000;
-
-    std::cout << "Bandwidth: " << bandwidth << std::endl;
-    std::cout << "Udp packet size in bits " << udp_packet_size*8 << std::endl;
-    std::cout << "Sleep interval: " << sleep_interval << std::endl;
-    std::cout << "Number of packets per second: " << packets_per_second << std::endl;
-    std::cout << "Num of chunks: " << num_of_chunks << std::endl;
-    std::cout << "Chunk size: " << chunk_size << std::endl;
-
-    unsigned int chunk_counter = -1;
-
-    unsigned long long chunk_start = 0;
-	GetTime(&my_exec_time);
-	chunk_start = toNanoSeconds(my_exec_time);
-    while(1){
-        ++chunk_counter;
-        if(chunk_counter > chunk_size){
-		    GetTime(&my_exec_time);
-		    unsigned long long chunk_end = toNanoSeconds(my_exec_time);
-            chunk_counter = 0;
-            std::this_thread::sleep_for(std::chrono::nanoseconds((int)(sleep_interval) - (chunk_end - chunk_start)));
-            GetTime(&my_exec_time);
-            chunk_start = toNanoSeconds(my_exec_time);
-        }
-
-        UDP_Header udp_header;
-    
-        udpwrapper->SendTo(&udp_header, buffer, udp_packet_size);
-        data_sum += udp_packet_size + 42;
-        num_of_packets++;
-
-        GetTime(&my_exec_time);
-        if(first_message_flag == false){
-            first_message_flag = true;
-            start_timer = my_exec_time;
-            finish_timer = my_exec_time;
-
-            interval_timer = start_timer;
-        }else{
-            finish_timer = my_exec_time;
-        }
-
-        // Terminate after experiment time.
-        if(experiment_duration_nsec < (toNanoSeconds(finish_timer) - toNanoSeconds(start_timer))){
-            Header *header = (Header *)malloc(sizeof(Header));
-            header->message_type = htons(0);
-            header->message_length = htons(0);
-            tcpwrapper->Send(header, NULL, 0);
-            break;
-        }
-
-        if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
-            interval_timer = my_exec_time;
-
-            std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
-            std::cout << "Transfer: " << ((float)data_sum / (1024*1024)) << " MB" << std::endl;
-            std::cout << "Bandwidth: " << ((bandwidth > 0) ? ((float)bandwidth)/(1024*1024) : link_speed) << "Mbits" << std::endl;
-            std::cout << "Num of packets: " << num_of_packets << std::endl;
-
-            num_of_packets = 0;
-            data_sum = 0;
-        }
+    // Create UDP threads
+    std::list<std::thread *> udp_threads;
+    for(int i = 0; i < parallel_data_streams; i++){
+        std::thread *udp_client_t = new std::thread(thread_udp_client, i, server_ip, *udp_port + i, bandwidth, experiment_duration_nsec);
+        udp_threads.push_back(udp_client_t);
     }
 
-    temp = tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(Header) + sizeof(InfoData));
-    memcpy(buffer, temp, sizeof(Header) + sizeof(InfoData));
+    // Inform the start of the experiment.
+    Header header;
+    tcpwrapper->Send(&header, &buffer, sizeof(int));
+    GetTime(&start_time);
+    start_flag = true;
 
-    Header *end_result_header = (Header *)buffer;
-    InfoData *info_data = (InfoData *)(buffer + sizeof(Header));
-    
-    std::cout << std::endl << "~~ Results ~~" << std::endl;
-    std::cout << "Test run for: " << finish_timer.tv_sec - start_timer.tv_sec << " sec " << std::endl;
-    std::cout << "Data send: " << info_data->data_sum << std::endl;
-    std::cout << "GData send: " << info_data->gdata_sum << std::endl;
-    std::cout << "Lost Packets: " << info_data->lost_packet_sum << std::endl;
+    for(auto it = udp_threads.begin(); it != udp_threads.end(); it++){
+        std::thread *udp_thread = (std::thread *)*it;
+        udp_thread->join();
+    }
 
-    udpwrapper->Close();
+    GetTime(&end_time);
+
+    // END OF EXPERIMENT
+    is_over = true;
+    tcpwrapper->Send(&header, &buffer, sizeof(int));
+
+    printing_t.join();
+
+    // Receive back the final results
+    std::cout << "\n\n~~~~ Receiver Results ~~~~\n";;
+    for(int i = 0; i < parallel_data_streams; i++){
+        std::cout << "~~~~~~~~~~~~~" << std::endl;
+        std::cout << "Stream [" << i << "]:" << std::endl; 
+
+        temp = tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(Header) + sizeof(InfoData));
+        memcpy(buffer, temp, sizeof(Header) + sizeof(InfoData));
+
+        InfoData *info_data = (InfoData *)(buffer + sizeof(Header));
+        info_data->NTOH();
+        std::cout << "Transfer: " << ((float)threads_info_array[i]->data_sum / (1024*1024)) << "MB" << std::endl;
+        std::cout << "Bandwidth: " << ((float)threads_info_array[i]->data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
+        std::cout << "Jitter: " << threads_info_array[i]->jitter_average << " nanoseconds" << std::endl;
+        std::cout << "Lost/Total: " << threads_info_array[i]->lost_packet_sum << " / " << threads_info_array[i]->num_of_packets 
+                                    << " (" << ((float)threads_info_array[i]->lost_packet_sum/(float)threads_info_array[i]->num_of_packets)*100 << "%)" << std::endl;
+    }
+
     tcpwrapper->Close();
+
+    std::cout << "\n\n";
 
     return -1;
 }

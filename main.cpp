@@ -28,24 +28,28 @@ void GetTime(struct timespec *my_exec_time){
         exit( EXIT_FAILURE );
     }
 }
-
 int CheckingNsec(long then, long now){
     if(now >= then)
         return 1;
     else
         return 0;
 }
-
 unsigned long long toNanoSeconds(struct timespec time_exec){
     return (unsigned long long)(time_exec.tv_sec % 1000) * 1000000000 + time_exec.tv_nsec;
     // return time_exec.tv_sec;
 }
 
-int listening_port = 4332;
+int listening_port = 4338;
 SocketWrapper *tcpwrapper = NULL;
 SocketWrapper *udpwrapper = NULL;
 
 unsigned int udp_packet_size = 1460 * 3;
+InfoData **threads_info_array = NULL;
+
+struct timespec start_time;
+struct timespec end_time;
+bool start_flag = false;
+bool is_over = false;
 
 int main(int argc, char *argv[]){
 

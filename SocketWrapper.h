@@ -204,14 +204,6 @@ public:
         pfd.fd = client_socket;
         pfd.events = POLLIN;    
         int rc = poll(&pfd, 1, 0);
-
-        // if(rc == 0)
-        //     std::cout << "Poll timeout.\n";
-        // else if(rc < 0)
-        //     std::cout << "Poll failed.\n";
-        
-        // std::cout << "Poll revents: " << pfd.revents << "\n";
-        // std::cout << "End of poll.\n";
         
         if(pfd.revents & POLLIN){
             return true;
