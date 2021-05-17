@@ -103,7 +103,6 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
         std::string helper = params->GetValue("-b");
         helper.erase(remove(helper.begin(), helper.end(), ' '), helper.end());
 
-        std::cout << helper<< "\n";
         int flag = 0;
 
         char *num = (char *)malloc(sizeof(char) * 10);
@@ -148,6 +147,19 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
         }
 
         *bandwidth = atoi(num);
+        
+        if(*bandwith < 0)
+        	assert(false);
+        else if(*bandwith < 330)
+        	udp_packet_size = 1460 * 3;
+        else if(*bandwith < 530)
+        	udp_packet_size = 1460 * 3.3;
+        else if(*bandwith < 700)
+        	udp_packet_size = 1460 * 3.6;
+        else if(*bandwith < 800)
+        	udp_packet_size = 1460 * 4;
+        else
+        	udp_packet_size = 1460 * 4.3;
 
         if(flag == 1)
             *bandwidth = *bandwidth * 1024;
@@ -158,8 +170,7 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
         else{
             std::cout << "Bad input.\n";
             assert(false);   
-        }
-        
+        }    
        
        assert(*bandwidth > 0);
     }
@@ -220,9 +231,8 @@ int Client(Parameters *params){
     struct timespec start_timer, finish_timer;
 
     // Init buffer
-    for(int i = 0; i < BUFFER_SIZE; i++){
+    for(int i = 0; i < BUFFER_SIZE; i++)
         buffer[i] = 'a';
-    }
 
     init(params, &parallel_data_streams, &udp_packet_size, &experiment_duration_nsec, &bandwidth, server_ip, &interval);
     signal(SIGINT, signal_callback_handler);
@@ -230,8 +240,7 @@ int Client(Parameters *params){
     // just for testing
     if(server_ip == NULL){
         server_ip = (char *)malloc(sizeof(char) * 40);
-        // strcpy(server_ip, "192.168.4.51");
-        strcpy(server_ip, "147.52.19.9");
+        strcpy(server_ip, "192.168.4.51");
     }
 
     // TCP Communication
@@ -326,8 +335,8 @@ int Client(Parameters *params){
     while(1){
         ++chunk_counter;
         if(chunk_counter > chunk_size){
-		    GetTime(&my_exec_time);
-		    unsigned long long chunk_end = toNanoSeconds(my_exec_time);
+	    GetTime(&my_exec_time);
+	    unsigned long long chunk_end = toNanoSeconds(my_exec_time);
             chunk_counter = 0;
             std::this_thread::sleep_for(std::chrono::nanoseconds((int)(sleep_interval) - (chunk_end - chunk_start)));
             GetTime(&my_exec_time);

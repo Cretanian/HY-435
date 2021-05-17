@@ -52,16 +52,15 @@ int Server(Parameters *params){
     const char *server_ip = NULL;
     std::ofstream output_file;
 
-    if(params->HasKey("-f")){
+    if(params->HasKey("-f"))
         output_file.open(params->GetValue("-f"));
-    }   
 
-
-    if(params->HasKey("-a")){
+    if(params->HasKey("-a"))
         server_ip = params->GetValue("-a").c_str();
-    }   
+   
     if(params->HasKey("-p"))
         listening_port = stoi(params->GetValue("-p"));
+        
     if(params->HasKey("-i"))
         interval = stof(params->GetValue("-i"));
 
@@ -165,7 +164,7 @@ int Server(Parameters *params){
     struct timespec interval_timer;
     unsigned int last_interval_seq_no = 0;
 
-    json stream, streams, sum, intervals, sums, k;
+    json stream, streams, sum, intervals, intro, sums;
     std::vector<json> c_vector;
 
     while(true){
@@ -222,6 +221,9 @@ int Server(Parameters *params){
             // Interval Info Printing
             if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
                 interval_timer = my_exec_time;
+                
+                stream["finish_timer_ns"] = toNanoSeconds(my_exec_time);
+                stream["start_timer_ns"] = toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000;
 
                 auto jitter_list = info_data_interval->findJitterList();
                 auto averageJitter = info_data_interval->findAverageJitter(jitter_list);
@@ -258,7 +260,7 @@ int Server(Parameters *params){
     std::cout << std::endl << "~~ Results ~~" << std::endl;
     std::cout << "Test run for: " << finish_timer.tv_sec - start_timer.tv_sec << " sec " << std::endl;
     std::cout << "Data send: " << info_data->data_sum << std::endl;
-    std::cout << "GData send: " << info_data->gdata_sum << std::endl;
+    std::cout << "Goodput send: " << info_data->gdata_sum << std::endl;
     std::cout << "Lost Packets: " << info_data->lost_packet_sum << std::endl;
     std::cout << "Total packets received: " << info_data->num_of_packets << std::endl;
 
@@ -267,13 +269,18 @@ int Server(Parameters *params){
     std::list<unsigned long long> jitter_list = info_data->findJitterList();
     unsigned long long mean = info_data->findAverageJitter(jitter_list);
     unsigned long long devination_jitter = info_data->findStandardDeviationJitter(jitter_list, mean);
-    // std::cout << "Average Jitter: " << mean << std::endl;
-    // std::cout << "Standard Devination of Jitter: " << devination_jitter << std::endl; 
+    std::cout << "Average Jitter: " << mean << std::endl;
+    std::cout << "Standard Devination of Jitter: " << devination_jitter << std::endl; 
 
+    sum["Execution_Time"] = finish_timer.tv_sec - start_timer.tv_sec;
+    sum["Total_Data send"] = info_data->data_sum;
+    sum["Total_Goodput_send"] = info_data->gdata_sum;
+    sum["Total_Lost_Packets"] = info_data->lost_packet_sum;
+    sum["Total_packets_received"] = info_data->num_of_packets;
+    sum["Throuput"] = info_data->data_sum / (experiment_duration_sec/1000000000);
+    sum["Average_Jitter"] = mean;
+    sum["Standard_Devination_of_Jitter"] = devination_jitter;
 
-    // for (json::iterator it = c_vector.begin(); it != c_vector.end(); ++it) {
-    //     std::cout << *it << '\n';
-    // }
     json j_vec(c_vector);
 
 
@@ -284,8 +291,9 @@ int Server(Parameters *params){
     tcpwrapper->Send(client_socket, header, info_data, sizeof(InfoData));
 
     if(params->HasKey("-f")){
-        sum["interval_num"] = interval;
-        intervals["intervals"] = {sum,j_vec};
+        intro["interval"] = interval;
+        sums["sum"] ={sum};
+        intervals["intervals"] = {intro,j_vec,sums};
         output_file << std::setw(4) << intervals << std::endl;
         output_file.close();
     }
