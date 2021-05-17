@@ -91,7 +91,7 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams){
     } 
         
     unsigned long long total_experiment_time = toNanoSeconds(end_time) - toNanoSeconds(start_time);
-    float total_experiment_float = 1;
+    float total_experiment_float = (float)(total_experiment_time / (1000 * 1000)) / 1000;
 
     std::cout << "\n\n";
     std::cout << "Experiment Total time: " << total_experiment_time << " nanoseconds.\n";
@@ -103,14 +103,13 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams){
         auto jitter_list = threads_info_array[i]->findJitterList();
         auto averageJitter = threads_info_array[i]->findAverageJitter(jitter_list);
 
-
-        std::cout << "Transfer: " << ((float)threads_info_array[i]->data_sum / (1024*1024)) << "MB" << std::endl;
+        std::cout << "Throughput: " << ((float)threads_info_array[i]->data_sum / (1024*1024)) << "MB" << std::endl;
+        std::cout << "Good Throughput: " << ((float)threads_info_array[i]->gdata_sum / (1024*1024)) << "MB" << std::endl;
         std::cout << "Bandwidth: " << ((float)threads_info_array[i]->data_sum) * 8 / (1024*1024) / total_experiment_float << "Mbits/sec" << std::endl;
         std::cout << "Jitter Average: " << threads_info_array[i]->jitter_average << " nanoseconds" << std::endl;
         std::cout << "Jitter Deviation: " << threads_info_array[i]->jitter_deviation << " nanosecond" << std::endl;
         std::cout << "Lost/Total: " << threads_info_array[i]->lost_packet_sum << " / " << threads_info_array[i]->num_of_packets 
                                     << " (" << ((float)threads_info_array[i]->lost_packet_sum/(float)threads_info_array[i]->num_of_packets)*100 << "%)" << std::endl;
-
     }
 
     return 1;
@@ -130,6 +129,7 @@ int thread_udp_server(int id, int port){
 
     threads_info_array[id] = new InfoData();
     InfoData *info_data = threads_info_array[id];
+    info_data->udp_port = port;
     assert(info_data != NULL);
 
     while(start_flag = false){
@@ -184,7 +184,7 @@ int Server(Parameters *params){
     uint8_t buffer[BUFFER_SIZE];
     unsigned int parallel_data_streams = 1;
     unsigned int udp_port = 4001;
-    unsigned int experiment_duration_sec = -1;
+    unsigned long long experiment_duration_nsec = 0;
     float interval = 1;
     uint8_t *data;
     int data_recv = 0;
@@ -253,15 +253,15 @@ int Server(Parameters *params){
     init_data = (int *)data;
        
     // Copy data from buffer to variables.
-    parallel_data_streams = init_data[0];
-    udp_packet_size = init_data[1];
-    experiment_duration_sec = init_data[2];
-    has_one_way_delay = init_data[3];
+    parallel_data_streams       = ntohl(init_data[0]);
+    udp_packet_size             = ntohl(init_data[1]);
+    experiment_duration_nsec    = ntohl(init_data[2]);
+    has_one_way_delay           = ntohl(init_data[3]);
 
     // Print them out for good measure
     std::cout << "Parallel Streams: " << parallel_data_streams << std::endl;;
     std::cout << "Udp Packet Size: " << udp_packet_size << std::endl;
-    std::cout << "Experiment time: " << experiment_duration_sec << std::endl;
+    std::cout << "Experiment time: " << experiment_duration_nsec << std::endl;
     std::cout << "Is one way: " << has_one_way_delay << std::endl;
 
     // Send message back to client specifing the UDP port.
@@ -356,9 +356,13 @@ int Server(Parameters *params){
         threads_info_array[i]->NTOH();
     }
 
-    tcpwrapper->Close();
-    
-    std::cout << "\n\n";
+    shutdown(tcpwrapper->GetSocket(), SHUT_RDWR);
+    close(client_socket);
+    close(tcpwrapper->GetSocket());
+    // int asd = 1;
+    // setsockopt(tcpwrapper->GetSocket(), SOL_SOCKET,SO_REUSEADDR, &asd, sizeof(int));
+
+    std::cout << "\n\nFIN\n";
 
     return -1;
 }

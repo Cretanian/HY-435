@@ -389,10 +389,11 @@ int Client(Parameters *params){
     tcp_header->message_type = htons(0);
 
     int f_info[4];
-    f_info[0] = parallel_data_streams;
-    f_info[1] = udp_packet_size;
-    f_info[2] = experiment_duration_nsec;
-    f_info[3] = has_one_way_delay;
+    std::cout << "Sizeof long long " << sizeof(unsigned long long) << std::endl;
+    f_info[0] = htonl(parallel_data_streams);
+    f_info[1] = htonl(udp_packet_size);
+    f_info[2] = htonl(experiment_duration_nsec);
+    f_info[3] = htonl(has_one_way_delay);
 
     tcp_header->message_length = htons(sizeof(struct Header) + sizeof(f_info));
 
@@ -478,26 +479,33 @@ int Client(Parameters *params){
 
     printing_t.join();
 
+    unsigned long long total_experiment_time = toNanoSeconds(end_time) - toNanoSeconds(start_time);
+    float total_experiment_float = (float)(total_experiment_time / (1000 * 1000)) / 1000;
+
     // Receive back the final results
     std::cout << "\n\n~~~~ Receiver Results ~~~~\n";;
     for(int i = 0; i < parallel_data_streams; i++){
         std::cout << "~~~~~~~~~~~~~" << std::endl;
         std::cout << "Stream [" << i << "]:" << std::endl; 
 
-        temp = tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(Header) + sizeof(InfoData));
+        temp = tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(InfoData));
         memcpy(buffer, temp, sizeof(Header) + sizeof(InfoData));
 
         InfoData *info_data = (InfoData *)(buffer + sizeof(Header));
         info_data->NTOH();
-        std::cout << "Transfer: " << ((float)threads_info_array[i]->data_sum / (1024*1024)) << "MB" << std::endl;
-        std::cout << "Bandwidth: " << ((float)threads_info_array[i]->data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
-        std::cout << "Jitter: " << threads_info_array[i]->jitter_average << " nanoseconds" << std::endl;
-        std::cout << "Lost/Total: " << threads_info_array[i]->lost_packet_sum << " / " << threads_info_array[i]->num_of_packets 
-                                    << " (" << ((float)threads_info_array[i]->lost_packet_sum/(float)threads_info_array[i]->num_of_packets)*100 << "%)" << std::endl;
+        std::cout << "Throughput: " << ((float)info_data->data_sum / (1024*1024)) << "MB" << std::endl;
+        std::cout << "Good Throughput: " << ((float)info_data->gdata_sum / (1024*1024)) << "MB" << std::endl;
+        std::cout << "Bandwidth: " << ((float)info_data->data_sum) * 8 / (1024*1024) / total_experiment_float << "Mbits/sec" << std::endl;
+        std::cout << "Jitter Average: " << info_data->jitter_average << " nanoseconds" << std::endl;
+        std::cout << "Jitter Deviation: " << info_data->jitter_deviation << " nanoseconds" << std::endl;
+        std::cout << "Lost/Total: " << info_data->lost_packet_sum << " / " << info_data->num_of_packets 
+                                    << " (" << ((float)info_data->lost_packet_sum/(float)info_data->num_of_packets)*100 << "%)" << std::endl;
+
+        memset(buffer, 0, BUFFER_SIZE);
     }
 
+    sleep(1);
     tcpwrapper->Close();
-
     std::cout << "\n\n";
 
     return -1;

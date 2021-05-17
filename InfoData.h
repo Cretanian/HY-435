@@ -17,6 +17,7 @@ public:
     unsigned int num_of_packets = -1;
     unsigned int jitter_average = -1;
     unsigned int jitter_deviation = -1;
+    unsigned int udp_port = -1;
     std::list<unsigned long long> time_arrived;
 
     InfoData() = default;
@@ -73,6 +74,7 @@ public:
         time_arrived = to_copy.time_arrived;
         jitter_average = to_copy.jitter_average;
         jitter_deviation = to_copy.jitter_deviation;
+        udp_port = to_copy.udp_port;
     }
 
     void HTON(){
@@ -83,6 +85,7 @@ public:
         htonl(num_of_packets);
         htonl(jitter_average);
         htonl(jitter_deviation);
+        htonl(udp_port);
     }
 
     void NTOH(){
@@ -93,6 +96,7 @@ public:
         ntohl(num_of_packets);
         ntohl(jitter_average);
         ntohl(jitter_deviation);
+        ntohl(udp_port);
     }
 
     InfoData operator-(const InfoData& i){

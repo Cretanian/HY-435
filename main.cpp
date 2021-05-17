@@ -36,9 +36,10 @@ int CheckingNsec(long then, long now){
 }
 unsigned long long toNanoSeconds(struct timespec time_exec){
     return (unsigned long long)(time_exec.tv_sec % 1000) * 1000000000 + time_exec.tv_nsec;
+    // return time_exec.tv_sec;
 }
 
-int listening_port = 4338;
+int listening_port = 4331;
 SocketWrapper *tcpwrapper = NULL;
 SocketWrapper *udpwrapper = NULL;
 
