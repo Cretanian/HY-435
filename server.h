@@ -87,51 +87,52 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams, u
     // Interval Info Printing
     while(is_over == false){
         GetTime(&my_exec_time);
-        if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
-            interval_timer = my_exec_time;
+        
+        interval_timer = my_exec_time;
 
-            std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-            std::cout << "Interval: " << (toNanoSeconds(my_exec_time) - toNanoSeconds(start_time)) / 1000000 << " ms" << std::endl;
+        std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+        std::cout << "Interval: " << (toNanoSeconds(my_exec_time) - toNanoSeconds(start_time)) / 1000000 << " ms" << std::endl;
 
-            for(int i = 0; i < parallel_data_streams; i++){
-                if(threads_info_array[i] == NULL)
-                    continue;
+        usleep(interval * 1000 * 1000);
+        for(int i = 0; i < parallel_data_streams; i++){
+            if(threads_info_array[i] == NULL)
+                continue;
 
-                InfoData current_info = *threads_info_array[i] - *prev_info_array[i];
+            InfoData current_info = *threads_info_array[i] - *prev_info_array[i];
 
-                std::cout << "~~~~~~~~~~~~~" << std::endl;
-                std::cout << "Stream [" << i << "]:" << std::endl; 
-                auto jitter_list = current_info.findJitterList();
-                auto averageJitter = current_info.findAverageJitter(jitter_list);
-                unsigned int total_interval_packets = current_info.num_of_packets;
+            std::cout << "~~~~~~~~~~~~~" << std::endl;
+            std::cout << "Stream [" << i << "]:" << std::endl; 
+            auto jitter_list = current_info.findJitterList();
+            auto averageJitter = current_info.findAverageJitter(jitter_list);
+            unsigned int total_interval_packets = current_info.num_of_packets;
 
-                std::cout << "Transfer: " << ((float)current_info.data_sum / (1024*1024)) << "MB" << std::endl;
-                std::cout << "Good Transfer: " << ((float)current_info.gdata_sum / (1024*1024)) << "MB" << std::endl;
-                std::cout << "Bandwidth: " << ((float)current_info.data_sum) * 8 / (1024*1024) / interval << " Mbits/sec\n";
-                print_bandwidth_bar(((float)current_info.data_sum) * 8 / (1024*1024) / interval, (float)target_bandwidth/(1000 * 1000));
-                std::cout << "Jitter: " << averageJitter << " nanoseconds" << std::endl;
-                std::cout << "Lost/Total: " << current_info.lost_packet_sum << " / " << total_interval_packets 
-                                            << " (" << ((float)current_info.lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
+            std::cout << "Transfer: " << ((float)current_info.data_sum / (1024*1024)) << "MB" << std::endl;
+            std::cout << "Good Transfer: " << ((float)current_info.gdata_sum / (1024*1024)) << "MB" << std::endl;
+            std::cout << "Bandwidth: " << (((float)current_info.data_sum) * 8) / (1024*1024) / interval << " Mbits/sec\n";
+            print_bandwidth_bar(((float)current_info.data_sum) * 8 / (1024*1024) / interval, (float)target_bandwidth/(1000 * 1000));
+            std::cout << "Jitter: " << averageJitter << " nanoseconds" << std::endl;
+            std::cout << "Lost/Total: " << current_info.lost_packet_sum << " / " << total_interval_packets 
+                                        << " (" << ((float)current_info.lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
 
 
-                if(!dont_create_file){
-                    threads_iteration_data["Port"] = threads_info_array[i]->udp_port;
-                    threads_iteration_data["Start_Time"] = toNanoSeconds(my_exec_time);
-                    threads_iteration_data["Finish_Time"] = toNanoSeconds(my_exec_time) + (unsigned long long)(interval * 1000) * 1000 * 1000;
-                    threads_iteration_data["Total_Data send"] = current_info.data_sum;
-                    threads_iteration_data["Total_Goodput_send"] = current_info.gdata_sum;
-                    threads_iteration_data["Total_Lost_Packets"] = current_info.lost_packet_sum;
-                    threads_iteration_data["Total_packets_received"] = current_info.num_of_packets;
-                    threads_iteration_data["Throuput"] = current_info.data_sum / interval;
-                    threads_iteration_data["Average_Jitter"] = current_info.jitter_average;
-                    threads_iteration_data["Standard_Devination_of_Jitter"] = current_info.jitter_deviation;          
+            if(!dont_create_file){
+                threads_iteration_data["Port"] = threads_info_array[i]->udp_port;
+                threads_iteration_data["Start_Time"] = toNanoSeconds(my_exec_time);
+                threads_iteration_data["Finish_Time"] = toNanoSeconds(my_exec_time) + (unsigned long long)(interval * 1000) * 1000 * 1000;
+                threads_iteration_data["Total_Data send"] = current_info.data_sum;
+                threads_iteration_data["Total_Goodput_send"] = current_info.gdata_sum;
+                threads_iteration_data["Total_Lost_Packets"] = current_info.lost_packet_sum;
+                threads_iteration_data["Total_packets_received"] = current_info.num_of_packets;
+                threads_iteration_data["Throuput"] = current_info.data_sum / interval;
+                threads_iteration_data["Average_Jitter"] = current_info.jitter_average;
+                threads_iteration_data["Standard_Devination_of_Jitter"] = current_info.jitter_deviation;          
 
-                    intervals_vec[i].push_back(threads_iteration_data);
-                }
-
-                prev_info_array[i]->Copy(*threads_info_array[i]);
+                intervals_vec[i].push_back(threads_iteration_data);
             }
+
+            prev_info_array[i]->Copy(*threads_info_array[i]);
         }
+        
     } 
         
     unsigned long long total_experiment_time = toNanoSeconds(end_time) - toNanoSeconds(start_time);
@@ -197,9 +198,10 @@ int thread_udp_server(int id, int port){
         // Spin to eternal nothingness
     }
 
+    int sock = wrapper->GetSocket();
     while(is_over == false){
         // Only if data exist, receive them.
-        if(wrapper->Poll(wrapper->GetSocket()) == true){
+        if(wrapper->Poll(sock) == true){
             temp = wrapper->ReceiveFrom();
             udp_header = (UDP_Header *)temp;
 
@@ -212,7 +214,6 @@ int thread_udp_server(int id, int port){
             }
             else{
                 // Increase counter
-                // if(info_data->num_of_packets < udp_header->seq_no + 1)
                 info_data->num_of_packets = udp_header->seq_no + 1;
                 
                 // Push time arrived for later calculation of jitter
@@ -233,6 +234,7 @@ int thread_udp_server(int id, int port){
             }
         }
     }
+
 
     wrapper->Close();
 

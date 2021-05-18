@@ -57,33 +57,31 @@ int thread_printing_client(float interval, unsigned int parallel_data_streams){
     // Interval Info Printing
     while(is_over == false){
         GetTime(&my_exec_time);
-        if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
-            interval_timer = my_exec_time;
+        
+        interval_timer = my_exec_time;
 
-            std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
-            std::cout << "Interval: " << (toNanoSeconds(my_exec_time) - toNanoSeconds(start_time)) / 1000000 << " ms" << std::endl;
+        std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
+        std::cout << "Interval: " << (toNanoSeconds(my_exec_time) - toNanoSeconds(start_time)) / 1000000 << " ms" << std::endl;
 
-            for(int i = 0; i < parallel_data_streams; i++){
-                if(threads_info_array[i] == NULL)
-                    continue;
+        for(int i = 0; i < parallel_data_streams; i++){
+            if(threads_info_array[i] == NULL)
+                continue;
 
-                InfoData current_info = *threads_info_array[i] - *prev_info_array[i];
+            InfoData current_info = *threads_info_array[i] - *prev_info_array[i];
 
-                std::cout << "~~~~~~~~~~~~~" << std::endl;
-                std::cout << "Stream [" << i << "]:" << std::endl; 
-                auto jitter_list = current_info.findJitterList();
-                auto averageJitter = current_info.findAverageJitter(jitter_list);
-                unsigned int total_interval_packets = current_info.num_of_packets;
+            std::cout << "~~~~~~~~~~~~~" << std::endl;
+            std::cout << "Stream [" << i << "]:" << std::endl; 
+            auto jitter_list = current_info.findJitterList();
+            auto averageJitter = current_info.findAverageJitter(jitter_list);
+            unsigned int total_interval_packets = current_info.num_of_packets;
 
-                std::cout << "Transfer: " << ((float)current_info.data_sum / (1024*1024)) << "MB" << std::endl;
-                std::cout << "Bandwidth: " << ((float)current_info.data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
+            std::cout << "Transfer: " << ((float)current_info.data_sum / (1024*1024)) << "MB" << std::endl;
+            std::cout << "Bandwidth: " << ((float)current_info.data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
 
-                prev_info_array[i]->Copy(*threads_info_array[i]);
-            }
-
-            // delete info_data_interval; // Free memory and reset.
-            // info_data_interval = new InfoData(); // Create new InfoData
+            prev_info_array[i]->Copy(*threads_info_array[i]);
         }
+
+        usleep(interval * 1000 * 1000);
     } 
 
     std::cout << "\n\n";
@@ -149,7 +147,8 @@ int thread_udp_client(int id, char *server_ip, int port, unsigned long long band
         }
 
         UDP_Header udp_header; // Header is filled in SendTo
-        wrapper->SendTo(&udp_header, buffer, udp_packet_size);
+        unsigned int sent_data = wrapper->SendTo(&udp_header, buffer, udp_packet_size);
+        assert(sent_data == udp_packet_size);
 
         info_data->data_sum += udp_packet_size + 42;
         info_data->num_of_packets++;
@@ -287,7 +286,10 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
 
         *bandwidth = atoi(num);
         assert(*bandwidth > 0);
-        if(*bandwidth < 330)
+
+        if(*bandwidth < 150)
+            *udp_packet_size = 1460;
+        else if(*bandwidth < 330)
             *udp_packet_size = 1460 * 3;
         else if(*bandwidth < 530)
             *udp_packet_size = 1460 * 3.3;
@@ -340,7 +342,7 @@ int Client(Parameters *params){
     unsigned int parallel_data_streams = 1;
     char *server_ip = NULL;
     float interval = 1;
-    unsigned int link_speed = 1 * (1024); // 1 GB default link speed.
+    unsigned int link_speed = 50 * (1024 * 1024); // 1 GB default link speed.
     uint8_t *data;
     int data_recv = 0;
     int data_sent = 0;
@@ -375,6 +377,9 @@ int Client(Parameters *params){
 
     init(params, &parallel_data_streams, &udp_packet_size, &experiment_duration_nsec, &bandwidth, server_ip, &interval);
     signal(SIGINT, signal_callback_handler);
+
+    if(bandwidth == -1)
+        bandwidth = link_speed;
 
     // just for testing
     if(server_ip == NULL){

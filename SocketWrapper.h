@@ -50,6 +50,8 @@ public:
                 perror("Opening UDP listening socket");
                 exit(EXIT_FAILURE);
             }
+            int rcv_buffer =  1460 * 100;
+            setsockopt (sock, IPPROTO_UDP, SO_RCVBUF, &rcv_buffer, sizeof(int));
         }
         else
             assert(0);
@@ -168,20 +170,28 @@ public:
         return buffer;
     }
 
-    void SendTo(UDP_Header *header, void *payload, uint32_t payload_size){
+    unsigned int SendTo(UDP_Header *header, void *payload, uint32_t payload_size){
         header->seq_no = ++seq_no;
         memcpy(buffer, header, sizeof(struct UDP_Header));
         memcpy(buffer + sizeof(struct UDP_Header), payload, sizeof(payload_size) - sizeof(UDP_Header));
 
         unsigned int sent_data;
         sent_data = sendto(sock, buffer, packet_size, 0, (struct sockaddr *)server_addr, sizeof(struct sockaddr_in));
+
         if(sent_data != packet_size)
             perror("send() sent a different number of bytes than expected");
+        else if(sent_data < packet_size)
+            std::cout << "~~~~KATASTROFIKAME ADERFIA~~~~~\n";
+
+        return sent_data;
     }
 
     void *ReceiveFrom(){
         unsigned int len = sizeof(struct sockaddr_in);
         int data_recv = recvfrom(sock, buffer, packet_size, 0, (struct sockaddr *)sin, &len);
+
+        if(data_recv < packet_size)
+            std::cout << "~~~~~~~~~KATASTROFH PATRIWTES~~~~~~~~~~~\n";
 
         if(data_recv < 0){
             perror("Receive from failed.");
