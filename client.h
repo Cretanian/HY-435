@@ -61,6 +61,8 @@ int thread_printing_client(float interval, unsigned int parallel_data_streams){
             interval_timer = my_exec_time;
 
             std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
+            std::cout << "Interval: " << (toNanoSeconds(my_exec_time) - toNanoSeconds(start_time)) / 1000000 << " ms" << std::endl;
+
             for(int i = 0; i < parallel_data_streams; i++){
                 if(threads_info_array[i] == NULL)
                     continue;
@@ -342,14 +344,14 @@ int Client(Parameters *params){
     uint8_t *data;
     int data_recv = 0;
     int data_sent = 0;
-    int sleep_before_tran = 0;
+    float sleep_before_tran = 0;
     bool one_way_delay_flag = false;
 
     if(params->HasKey("-d"))
         one_way_delay_flag = true;
 
     if(params->HasKey("-w")){
-        sleep_before_tran = stoi(params->GetValue("-w"));
+        sleep_before_tran = stof(params->GetValue("-w"));
         assert(sleep_before_tran > 0);
     }
 
@@ -388,12 +390,13 @@ int Client(Parameters *params){
     Header *tcp_header = (Header *)malloc(sizeof(Header));
     tcp_header->message_type = htons(0);
 
-    int f_info[4];
+    int f_info[5];
     std::cout << "Sizeof long long " << sizeof(unsigned long long) << std::endl;
     f_info[0] = htonl(parallel_data_streams);
     f_info[1] = htonl(udp_packet_size);
     f_info[2] = htonl(experiment_duration_nsec);
     f_info[3] = htonl(has_one_way_delay);
+    f_info[4] = htonl(bandwidth);
 
     tcp_header->message_length = htons(sizeof(struct Header) + sizeof(f_info));
 
@@ -459,6 +462,9 @@ int Client(Parameters *params){
         std::thread *udp_client_t = new std::thread(thread_udp_client, i, server_ip, *udp_port + i, bandwidth, experiment_duration_nsec);
         udp_threads.push_back(udp_client_t);
     }
+
+    // In case of -w parameter
+    usleep(sleep_before_tran * 1000 * 1000);
 
     // Inform the start of the experiment.
     Header header;

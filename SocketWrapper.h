@@ -182,6 +182,7 @@ public:
     void *ReceiveFrom(){
         unsigned int len = sizeof(struct sockaddr_in);
         int data_recv = recvfrom(sock, buffer, packet_size, 0, (struct sockaddr *)sin, &len);
+
         if(data_recv < 0){
             perror("Receive from failed.");
         }

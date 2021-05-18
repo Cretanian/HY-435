@@ -47,7 +47,21 @@ void GetTime(struct timespec *my_exec_time);
 int CheckingNsec(long then, long now);
 unsigned long long int toNanoSeconds(struct timespec time_exec);
 
-int thread_printing_server(float interval, unsigned int parallel_data_streams){
+// Precondition: Receive it in decimal format of Mega Bits
+void print_bandwidth_bar(float bandwidth, float target_bandwidth){
+    float reach_percent = (float)bandwidth/(float)target_bandwidth;
+    int bar_max = 50;
+    int bar_counter = bar_max * reach_percent; // Only care for the first decimal accuracy;
+    
+    std::cout << "[";
+    for(int i = 0; i < bar_counter; i++)
+        std::cout << "#";
+    for(int i = bar_counter; i < bar_max; i++)
+        std::cout << ".";
+    std::cout << "]  " << reach_percent * 100 << "%" << std::endl;
+}
+
+int thread_printing_server(float interval, unsigned int parallel_data_streams, unsigned int target_bandwidth){
     struct timespec my_exec_time;
     struct timespec interval_timer;
 
@@ -66,7 +80,7 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams){
     for(int i = 0; i < parallel_data_streams; i++)
         last_interval_seq_no[i] = 0;
 
-    while(start_flag = false){
+    while(start_flag == false){
         // Spin to eternal nothingness
     }
 
@@ -76,7 +90,9 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams){
         if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
             interval_timer = my_exec_time;
 
-            std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
+            std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+            std::cout << "Interval: " << (toNanoSeconds(my_exec_time) - toNanoSeconds(start_time)) / 1000000 << " ms" << std::endl;
+
             for(int i = 0; i < parallel_data_streams; i++){
                 if(threads_info_array[i] == NULL)
                     continue;
@@ -91,7 +107,8 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams){
 
                 std::cout << "Transfer: " << ((float)current_info.data_sum / (1024*1024)) << "MB" << std::endl;
                 std::cout << "Good Transfer: " << ((float)current_info.gdata_sum / (1024*1024)) << "MB" << std::endl;
-                std::cout << "Bandwidth: " << ((float)current_info.data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
+                std::cout << "Bandwidth: " << ((float)current_info.data_sum) * 8 / (1024*1024) / interval << " Mbits/sec\n";
+                print_bandwidth_bar(((float)current_info.data_sum) * 8 / (1024*1024) / interval, (float)target_bandwidth/(1000 * 1000));
                 std::cout << "Jitter: " << averageJitter << " nanoseconds" << std::endl;
                 std::cout << "Lost/Total: " << current_info.lost_packet_sum << " / " << total_interval_packets 
                                             << " (" << ((float)current_info.lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
@@ -229,6 +246,7 @@ int Server(Parameters *params){
     unsigned int parallel_data_streams = 1;
     unsigned int udp_port = 4001;
     unsigned long long experiment_duration_nsec = 0;
+    unsigned int target_bandwidth = -1;
     float interval = 1;
     uint8_t *data;
     int data_recv = 0;
@@ -304,14 +322,14 @@ int Server(Parameters *params){
     udp_packet_size             = ntohl(init_data[1]);
     experiment_duration_nsec    = ntohl(init_data[2]);
     has_one_way_delay           = ntohl(init_data[3]);
-
-
+    target_bandwidth            = ntohl(init_data[4]);
 
     // Print them out for good measure
     std::cout << "Parallel Streams: " << parallel_data_streams << std::endl;;
     std::cout << "Udp Packet Size: " << udp_packet_size << std::endl;
     std::cout << "Experiment time: " << experiment_duration_nsec << std::endl;
     std::cout << "Is one way: " << has_one_way_delay << std::endl;
+    std::cout << "Target Bandwidth: " << target_bandwidth << std::endl;
 
     // Send message back to client specifing the UDP port.
     init_data[0] = udp_port;
@@ -360,7 +378,7 @@ int Server(Parameters *params){
     }
 
     // Create printing thread
-    std::thread printing_t(thread_printing_server, interval, parallel_data_streams);
+    std::thread printing_t(thread_printing_server, interval, parallel_data_streams, target_bandwidth);
 
     // Create udp threads.
     std::list<std::thread *> udp_threads;
@@ -380,7 +398,6 @@ int Server(Parameters *params){
         }
     }
 
-    // Do TCP thread work.
     while(true){
         if(tcpwrapper->Poll(client_socket) == true){ //Signal to terminate the experiment
             tcpwrapper->Receive(client_socket, sizeof(int));
