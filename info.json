@@ -1,0 +1,288 @@
+{
+    "intervals": [
+        {
+            "info": [
+                {
+                    "interval": 1.0
+                },
+                {
+                    "parallel_data_streams": 2
+                }
+            ]
+        },
+        [
+            [
+                {
+                    "Average_Jitter": 1699524,
+                    "Finish_Time": 413940802209,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 412940802209,
+                    "Throuput": 2604558.0,
+                    "Total_Data send": 2604558,
+                    "Total_Goodput_send": 2577464,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 592
+                },
+                {
+                    "Average_Jitter": 1697953,
+                    "Finish_Time": 414940802233,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 413940802233,
+                    "Throuput": 2608980.0,
+                    "Total_Data send": 2608980,
+                    "Total_Goodput_send": 2581840,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 590
+                },
+                {
+                    "Average_Jitter": 1699116,
+                    "Finish_Time": 415940802245,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 414940802245,
+                    "Throuput": 2600136.0,
+                    "Total_Data send": 2600136,
+                    "Total_Goodput_send": 2573088,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 588
+                },
+                {
+                    "Average_Jitter": 1697725,
+                    "Finish_Time": 416940802258,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 415940802258,
+                    "Throuput": 2604558.0,
+                    "Total_Data send": 2604558,
+                    "Total_Goodput_send": 2577464,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 589
+                },
+                {
+                    "Average_Jitter": 1699257,
+                    "Finish_Time": 417940802259,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 416940802259,
+                    "Throuput": 2608980.0,
+                    "Total_Data send": 2608980,
+                    "Total_Goodput_send": 2581840,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 590
+                },
+                {
+                    "Average_Jitter": 1697352,
+                    "Finish_Time": 418940802267,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 417940802267,
+                    "Throuput": 2608980.0,
+                    "Total_Data send": 2608980,
+                    "Total_Goodput_send": 2581840,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 590
+                },
+                {
+                    "Average_Jitter": 1699206,
+                    "Finish_Time": 419940802291,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 418940802291,
+                    "Throuput": 2600136.0,
+                    "Total_Data send": 2600136,
+                    "Total_Goodput_send": 2573088,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 588
+                },
+                {
+                    "Average_Jitter": 1697457,
+                    "Finish_Time": 420940802335,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 419940802335,
+                    "Throuput": 2604558.0,
+                    "Total_Data send": 2604558,
+                    "Total_Goodput_send": 2577464,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 589
+                },
+                {
+                    "Average_Jitter": 1699055,
+                    "Finish_Time": 421940802365,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 420940802365,
+                    "Throuput": 2608980.0,
+                    "Total_Data send": 2608980,
+                    "Total_Goodput_send": 2581840,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 590
+                },
+                {
+                    "Average_Jitter": 1699035,
+                    "Finish_Time": 422940802368,
+                    "Port": 4001,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 421940802368,
+                    "Throuput": 2608980.0,
+                    "Total_Data send": 2608980,
+                    "Total_Goodput_send": 2581840,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 590
+                }
+            ],
+            [
+                {
+                    "Average_Jitter": 1699095,
+                    "Finish_Time": 413940802209,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 412940802209,
+                    "Throuput": 2604558.0,
+                    "Total_Data send": 2604558,
+                    "Total_Goodput_send": 2577464,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 592
+                },
+                {
+                    "Average_Jitter": 1697109,
+                    "Finish_Time": 414940802233,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 413940802233,
+                    "Throuput": 2608980.0,
+                    "Total_Data send": 2608980,
+                    "Total_Goodput_send": 2581840,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 590
+                },
+                {
+                    "Average_Jitter": 1697927,
+                    "Finish_Time": 415940802245,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 414940802245,
+                    "Throuput": 2608980.0,
+                    "Total_Data send": 2608980,
+                    "Total_Goodput_send": 2581840,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 590
+                },
+                {
+                    "Average_Jitter": 1697704,
+                    "Finish_Time": 416940802258,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 415940802258,
+                    "Throuput": 2604558.0,
+                    "Total_Data send": 2604558,
+                    "Total_Goodput_send": 2577464,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 589
+                },
+                {
+                    "Average_Jitter": 1697635,
+                    "Finish_Time": 417940802259,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 416940802259,
+                    "Throuput": 2600136.0,
+                    "Total_Data send": 2600136,
+                    "Total_Goodput_send": 2573088,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 588
+                },
+                {
+                    "Average_Jitter": 1697608,
+                    "Finish_Time": 418940802267,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 417940802267,
+                    "Throuput": 2600136.0,
+                    "Total_Data send": 2600136,
+                    "Total_Goodput_send": 2573088,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 588
+                },
+                {
+                    "Average_Jitter": 1699633,
+                    "Finish_Time": 419940802291,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 418940802291,
+                    "Throuput": 2604558.0,
+                    "Total_Data send": 2604558,
+                    "Total_Goodput_send": 2577464,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 589
+                },
+                {
+                    "Average_Jitter": 1697256,
+                    "Finish_Time": 420940802335,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 419940802335,
+                    "Throuput": 2608980.0,
+                    "Total_Data send": 2608980,
+                    "Total_Goodput_send": 2581840,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 590
+                },
+                {
+                    "Average_Jitter": 1699736,
+                    "Finish_Time": 421940802365,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 420940802365,
+                    "Throuput": 2604558.0,
+                    "Total_Data send": 2604558,
+                    "Total_Goodput_send": 2577464,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 589
+                },
+                {
+                    "Average_Jitter": 1699099,
+                    "Finish_Time": 422940802368,
+                    "Port": 4002,
+                    "Standard_Devination_of_Jitter": 4294967295,
+                    "Start_Time": 421940802368,
+                    "Throuput": 2600136.0,
+                    "Total_Data send": 2600136,
+                    "Total_Goodput_send": 2573088,
+                    "Total_Lost_Packets": 0,
+                    "Total_packets_received": 588
+                }
+            ]
+        ],
+        {
+            "sum_intervals": [
+                [
+                    {
+                        "Average_Jitter": 1696734,
+                        "Execution_Time": 10002096035,
+                        "Port": 4001,
+                        "Standard_Devination_of_Jitter": 4294967295,
+                        "Throuput": 2606690.0,
+                        "Total_Data send": 26072112,
+                        "Total_Goodput_send": 25800896,
+                        "Total_Lost_Packets": 0,
+                        "Total_packets_received": 5898
+                    },
+                    {
+                        "Average_Jitter": 1696734,
+                        "Execution_Time": 10002096035,
+                        "Port": 4002,
+                        "Standard_Devination_of_Jitter": 4294967295,
+                        "Throuput": 2606690.0,
+                        "Total_Data send": 26072112,
+                        "Total_Goodput_send": 25800896,
+                        "Total_Lost_Packets": 0,
+                        "Total_packets_received": 5898
+                    }
+                ]
+            ]
+        }
+    ]
+}

@@ -432,9 +432,11 @@ int Server(Parameters *params){
         //if doesnt work, for get all val and then create new
         json j_vec(intervals_vec);
         json final_sum(sum_vec);
-        json sums, intro,intervals;
+        json sums, intro,intervals, tmp1,tmp2;
         
-        intro["interval"] = interval;      
+        tmp1["interval"] = interval;
+        tmp2["parallel_data_streams"] = parallel_data_streams;
+        intro["info"] = {tmp1,tmp2};      
         sums["sum_intervals"] ={final_sum};
 
         intervals["intervals"] = {intro,j_vec, sums};
