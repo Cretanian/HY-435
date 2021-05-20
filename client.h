@@ -219,7 +219,7 @@ void signal_callback_handler(int signum) {
     exit(signum);
 }
 
-void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *udp_packet_size,unsigned long long *experiment_duration_nsec, unsigned int *bandwidth, char *server_ip, float *interval){
+void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *udp_packet_size,unsigned long long *experiment_duration_nsec, unsigned int *bandwidth, char **server_ip, float *interval){
     if(params->HasKey("-n")){
         *parallel_data_streams = stoi(params->GetValue("-n"));
         assert(*parallel_data_streams > 0);
@@ -316,7 +316,9 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
     }
 
     if(params->HasKey("-a")){
-        server_ip = (char *)params->GetValue("-a").c_str();
+        // *server_ip = (char *)params->GetValue("-a").c_str();
+        *server_ip = (char *)malloc(sizeof(char) * strlen((char *)params->GetValue("-a").c_str()));
+        strcpy(*server_ip, (char *)params->GetValue("-a").c_str());
         std::cout << "Custom server ip: " << *server_ip << std::endl;
     }
 
@@ -375,18 +377,11 @@ int Client(Parameters *params){
         buffer[i] = 'a';
     }
 
-    init(params, &parallel_data_streams, &udp_packet_size, &experiment_duration_nsec, &bandwidth, server_ip, &interval);
+    init(params, &parallel_data_streams, &udp_packet_size, &experiment_duration_nsec, &bandwidth, &server_ip, &interval);
     signal(SIGINT, signal_callback_handler);
 
     if(bandwidth == -1)
         bandwidth = link_speed;
-
-    // just for testing
-    if(server_ip == NULL){
-        server_ip = (char *)malloc(sizeof(char) * 40);
-        // strcpy(server_ip, "192.168.4.51");
-        strcpy(server_ip, "147.52.19.9");
-    }
 
     // TCP Communication
     tcpwrapper = new SocketWrapper(TCP);

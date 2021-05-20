@@ -63,12 +63,13 @@ void print_bandwidth_bar(float bandwidth, float target_bandwidth){
 
 int thread_printing_server(float interval, unsigned int parallel_data_streams, unsigned int target_bandwidth){
     struct timespec my_exec_time;
-    struct timespec interval_timer;
+    struct timespec before_sleep;
+    struct timespec after_sleep;
 
     json threads_iteration_data;
    
     GetTime(&my_exec_time);
-    interval_timer = my_exec_time;
+    before_sleep = my_exec_time;
 
     // Prepare info data placeholders to subtract from the newer ones.
     InfoData **prev_info_array = (InfoData **)malloc(sizeof(InfoData *) * parallel_data_streams);
@@ -86,19 +87,22 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams, u
 
     // Interval Info Printing
     while(is_over == false){
-        GetTime(&my_exec_time);
-        
-        interval_timer = my_exec_time;
-
         std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
         std::cout << "Interval: " << (toNanoSeconds(my_exec_time) - toNanoSeconds(start_time)) / 1000000 << " ms" << std::endl;
 
+        GetTime(&my_exec_time);
+        before_sleep = my_exec_time;
         usleep(interval * 1000 * 1000);
+        GetTime(&my_exec_time);
+        after_sleep = my_exec_time;
+
         for(int i = 0; i < parallel_data_streams; i++){
             if(threads_info_array[i] == NULL)
                 continue;
 
             InfoData current_info = *threads_info_array[i] - *prev_info_array[i];
+            unsigned long long true_interval_time = toNanoSeconds(after_sleep) - toNanoSeconds(before_sleep);        
+            float interval_bandwidth =  ((current_info.data_sum * 8 / (1024*1024)) / ((float)(true_interval_time/1000) / 1000)) * 1000;    
 
             std::cout << "~~~~~~~~~~~~~" << std::endl;
             std::cout << "Stream [" << i << "]:" << std::endl; 
@@ -108,12 +112,11 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams, u
 
             std::cout << "Transfer: " << ((float)current_info.data_sum / (1024*1024)) << "MB" << std::endl;
             std::cout << "Good Transfer: " << ((float)current_info.gdata_sum / (1024*1024)) << "MB" << std::endl;
-            std::cout << "Bandwidth: " << (((float)current_info.data_sum) * 8) / (1024*1024) / interval << " Mbits/sec\n";
-            print_bandwidth_bar(((float)current_info.data_sum) * 8 / (1024*1024) / interval, (float)target_bandwidth/(1000 * 1000));
+            std::cout << "Bandwidth: " << interval_bandwidth << " Mbits/sec\n";
+            print_bandwidth_bar(interval_bandwidth, (float)target_bandwidth/(1000 * 1000));
             std::cout << "Jitter: " << averageJitter << " nanoseconds" << std::endl;
             std::cout << "Lost/Total: " << current_info.lost_packet_sum << " / " << total_interval_packets 
                                         << " (" << ((float)current_info.lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
-
 
             if(!dont_create_file){
                 threads_iteration_data["Port"] = threads_info_array[i]->udp_port;
@@ -152,6 +155,7 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams, u
         std::cout << "Transfer: " << ((float)threads_info_array[i]->data_sum / (1024*1024)) << "MB" << std::endl;
         std::cout << "Good Transfer: " << ((float)threads_info_array[i]->gdata_sum / (1024*1024)) << "MB" << std::endl;
         std::cout << "Bandwidth: " << ((float)threads_info_array[i]->data_sum) * 8 / (1024*1024) / total_experiment_float << "Mbits/sec" << std::endl;
+        print_bandwidth_bar(((float)threads_info_array[i]->data_sum) * 8 / (1024*1024) / total_experiment_float, (float)target_bandwidth/(1000 * 1000));
         std::cout << "Jitter Average: " << threads_info_array[i]->jitter_average << " nanoseconds" << std::endl;
         std::cout << "Jitter Deviation: " << threads_info_array[i]->jitter_deviation << " nanosecond" << std::endl;
         std::cout << "Lost/Total: " << threads_info_array[i]->lost_packet_sum << " / " << threads_info_array[i]->num_of_packets 
@@ -258,7 +262,7 @@ int Server(Parameters *params){
 
 
     // Set sin.sin_addr
-    const char *server_ip = NULL;
+    char *server_ip = NULL;
 
     std::ofstream output_file;
 
@@ -267,8 +271,10 @@ int Server(Parameters *params){
         dont_create_file = false;
     }
 
-    if(params->HasKey("-a"))
-        server_ip = params->GetValue("-a").c_str();
+    if(params->HasKey("-a")){
+        server_ip = (char *)malloc(sizeof(char) * strlen(params->GetValue("-a").c_str()));
+        strcpy(server_ip, params->GetValue("-a").c_str());
+    }
 
     if(params->HasKey("-p"))
         listening_port = stoi(params->GetValue("-p"));
@@ -432,11 +438,9 @@ int Server(Parameters *params){
         //if doesnt work, for get all val and then create new
         json j_vec(intervals_vec);
         json final_sum(sum_vec);
-        json sums, intro,intervals, tmp1,tmp2;
+        json sums, intro,intervals;
         
-        tmp1["interval"] = interval;
-        tmp2["parallel_data_streams"] = parallel_data_streams;
-        intro["info"] = {tmp1,tmp2};      
+        intro["interval"] = interval;      
         sums["sum_intervals"] ={final_sum};
 
         intervals["intervals"] = {intro,j_vec, sums};
