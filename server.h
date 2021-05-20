@@ -114,7 +114,6 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams, u
             std::cout << "Lost/Total: " << current_info.lost_packet_sum << " / " << total_interval_packets 
                                         << " (" << ((float)current_info.lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
 
-
             if(!dont_create_file){
                 threads_iteration_data["Port"] = threads_info_array[i]->udp_port;
                 threads_iteration_data["Start_Time"] = toNanoSeconds(my_exec_time);
@@ -152,6 +151,7 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams, u
         std::cout << "Transfer: " << ((float)threads_info_array[i]->data_sum / (1024*1024)) << "MB" << std::endl;
         std::cout << "Good Transfer: " << ((float)threads_info_array[i]->gdata_sum / (1024*1024)) << "MB" << std::endl;
         std::cout << "Bandwidth: " << ((float)threads_info_array[i]->data_sum) * 8 / (1024*1024) / total_experiment_float << "Mbits/sec" << std::endl;
+        print_bandwidth_bar(((float)threads_info_array[i]->data_sum) * 8 / (1024*1024) / total_experiment_float, (float)target_bandwidth/(1000 * 1000));
         std::cout << "Jitter Average: " << threads_info_array[i]->jitter_average << " nanoseconds" << std::endl;
         std::cout << "Jitter Deviation: " << threads_info_array[i]->jitter_deviation << " nanosecond" << std::endl;
         std::cout << "Lost/Total: " << threads_info_array[i]->lost_packet_sum << " / " << threads_info_array[i]->num_of_packets 
