@@ -262,7 +262,7 @@ int Server(Parameters *params){
 
 
     // Set sin.sin_addr
-    const char *server_ip = NULL;
+    char *server_ip = NULL;
 
     std::ofstream output_file;
 
@@ -271,8 +271,10 @@ int Server(Parameters *params){
         dont_create_file = false;
     }
 
-    if(params->HasKey("-a"))
-        server_ip = params->GetValue("-a").c_str();
+    if(params->HasKey("-a")){
+        server_ip = (char *)malloc(sizeof(char) * strlen(params->GetValue("-a").c_str()));
+        strcpy(server_ip, params->GetValue("-a").c_str());
+    }
 
     if(params->HasKey("-p"))
         listening_port = stoi(params->GetValue("-p"));
