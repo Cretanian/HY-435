@@ -316,7 +316,6 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
     }
 
     if(params->HasKey("-a")){
-        // *server_ip = (char *)params->GetValue("-a").c_str();
         *server_ip = (char *)malloc(sizeof(char) * strlen((char *)params->GetValue("-a").c_str()));
         strcpy(*server_ip, (char *)params->GetValue("-a").c_str());
         std::cout << "Custom server ip: " << *server_ip << std::endl;

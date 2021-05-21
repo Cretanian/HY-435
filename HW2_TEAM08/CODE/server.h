@@ -182,7 +182,6 @@ int thread_printing_server(float interval, unsigned int parallel_data_streams, u
 }
 
 int thread_udp_server(int id, int port){
-    // std::cout << "\n\nUDP Thread with ID: " << id << " and port: " << port << "\n";
     SocketWrapper *wrapper = new SocketWrapper(UDP);
     wrapper->SetUDPPacketLength(udp_packet_size);
     wrapper->Bind(port);
