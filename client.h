@@ -148,18 +148,18 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
 
         *bandwidth = atoi(num);
         
-        if(*bandwith < 0)
-        	assert(false);
-        else if(*bandwith < 330)
-        	udp_packet_size = 1460 * 3;
-        else if(*bandwith < 530)
-        	udp_packet_size = 1460 * 3.3;
-        else if(*bandwith < 700)
-        	udp_packet_size = 1460 * 3.6;
-        else if(*bandwith < 800)
-        	udp_packet_size = 1460 * 4;
+        if(*bandwidth < 150)
+            *udp_packet_size = 1460;
+        else if(*bandwidth < 330)
+            *udp_packet_size = 1460 * 3;
+        else if(*bandwidth < 530)
+            *udp_packet_size = 1460 * 3.3;
+        else if(*bandwidth < 700)
+            *udp_packet_size = 1460 * 3.6;
+        else if(*bandwidth < 800)
+            *udp_packet_size = 1460 * 4;
         else
-        	udp_packet_size = 1460 * 4.3;
+            *udp_packet_size = 1460 * 4.3;
 
         if(flag == 1)
             *bandwidth = *bandwidth * 1024;
@@ -176,7 +176,8 @@ void init(Parameters *params,unsigned int *parallel_data_streams,unsigned int *u
     }
 
     if(params->HasKey("-a")){
-        server_ip = (char *)params->GetValue("-a").c_str();
+        *server_ip = (char *)malloc(sizeof(char) * strlen((char *)params->GetValue("-a").c_str()));
+        strcpy(*server_ip, (char *)params->GetValue("-a").c_str());
         std::cout << "Custom server ip: " << *server_ip << std::endl;
     }
 
@@ -238,10 +239,10 @@ int Client(Parameters *params){
     signal(SIGINT, signal_callback_handler);
 
     // just for testing
-    if(server_ip == NULL){
-        server_ip = (char *)malloc(sizeof(char) * 40);
-        strcpy(server_ip, "192.168.4.51");
-    }
+    // if(server_ip == NULL){
+    //     server_ip = (char *)malloc(sizeof(char) * 40);
+    //     strcpy(server_ip, "192.168.4.51");
+    // }
 
     // TCP Communication
     tcpwrapper = new SocketWrapper(TCP);
@@ -251,10 +252,12 @@ int Client(Parameters *params){
     tcp_header->message_type = htons(0);
 
     int f_info[4];
-    f_info[0] = parallel_data_streams;
-    f_info[1] = udp_packet_size;
-    f_info[2] = experiment_duration_nsec;
-    f_info[3] = has_one_way_delay;
+    std::cout << "Sizeof long long " << sizeof(unsigned long long) << std::endl;
+    f_info[0] = htonl(parallel_data_streams);
+    f_info[1] = htonl(udp_packet_size);
+    f_info[2] = htonl(experiment_duration_nsec);
+    f_info[3] = htonl(has_one_way_delay);
+    f_info[4] = htonl(bandwidth);
 
     tcp_header->message_length = htons(sizeof(struct Header) + sizeof(f_info));
 
@@ -330,6 +333,9 @@ int Client(Parameters *params){
     unsigned int chunk_counter = -1;
 
     unsigned long long chunk_start = 0;
+
+    unsigned long long total_experiment_time = 0;
+    
 	GetTime(&my_exec_time);
 	chunk_start = toNanoSeconds(my_exec_time);
     while(1){
@@ -362,6 +368,7 @@ int Client(Parameters *params){
 
         // Terminate after experiment time.
         if(experiment_duration_nsec < (toNanoSeconds(finish_timer) - toNanoSeconds(start_timer))){
+            total_experiment_time = toNanoSeconds(finish_timer) - toNanoSeconds(start_timer);
             Header *header = (Header *)malloc(sizeof(Header));
             header->message_type = htons(0);
             header->message_length = htons(0);
@@ -370,9 +377,12 @@ int Client(Parameters *params){
         }
 
         if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
+            std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
+            std::cout << "Interval: " << (toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000)) / 1000000 << " ms" << std::endl;
+            std::cout << "~~~~~~~~~~~~~" << std::endl;
+            
             interval_timer = my_exec_time;
 
-            std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
             std::cout << "Transfer: " << ((float)data_sum / (1024*1024)) << " MB" << std::endl;
             std::cout << "Bandwidth: " << ((bandwidth > 0) ? ((float)bandwidth)/(1024*1024) : link_speed) << "Mbits" << std::endl;
             std::cout << "Num of packets: " << num_of_packets << std::endl;
@@ -382,20 +392,29 @@ int Client(Parameters *params){
         }
     }
 
-    temp = tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(Header) + sizeof(InfoData));
+    std::cout << "\n\n~~~~ Receiver Results ~~~~\n";;
+    temp = tcpwrapper->Receive(tcpwrapper->GetSocket(), sizeof(InfoData));
     memcpy(buffer, temp, sizeof(Header) + sizeof(InfoData));
 
-    Header *end_result_header = (Header *)buffer;
-    InfoData *info_data = (InfoData *)(buffer + sizeof(Header));
-    
-    std::cout << std::endl << "~~ Results ~~" << std::endl;
-    std::cout << "Test run for: " << finish_timer.tv_sec - start_timer.tv_sec << " sec " << std::endl;
-    std::cout << "Data send: " << info_data->data_sum << std::endl;
-    std::cout << "GData send: " << info_data->gdata_sum << std::endl;
-    std::cout << "Lost Packets: " << info_data->lost_packet_sum << std::endl;
+    float total_experiment_float = (float)(total_experiment_time / (1000 * 1000)) / 1000;
 
+    InfoData *info_data = (InfoData *)(buffer + sizeof(Header));
+    info_data->NTOH();
+
+    std::cout << "Throughput: " << ((float)info_data->data_sum / (1024*1024)) << "MB" << std::endl;
+    std::cout << "Good Throughput: " << ((float)info_data->gdata_sum / (1024*1024)) << "MB" << std::endl;
+    std::cout << "Bandwidth: " << ((float)info_data->data_sum) * 8 / (1024*1024) / total_experiment_float << "Mbits/sec" << std::endl;
+    std::cout << "Jitter Average: " << info_data->jitter_average << " nanoseconds" << std::endl;
+    std::cout << "Jitter Deviation: " << info_data->jitter_deviation << " nanoseconds" << std::endl;
+    std::cout << "Lost/Total: " << info_data->lost_packet_sum << " / " << info_data->num_of_packets 
+                                << " (" << ((float)info_data->lost_packet_sum/(float)info_data->num_of_packets)*100 << "%)" << std::endl;
+
+    memset(buffer, 0, BUFFER_SIZE);
+
+    sleep(1);
     udpwrapper->Close();
     tcpwrapper->Close();
+    std::cout << "\n\n";
 
     return -1;
 }

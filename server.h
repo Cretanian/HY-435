@@ -20,12 +20,16 @@
 
 using json = nlohmann::json;
 
+json sum;
+std::vector<json> sum_vec;
+std::vector<json> intervals_vec;
 
 extern int listening_port;
 extern SocketWrapper *tcpwrapper;
 extern SocketWrapper *udpwrapper;
 
 extern unsigned int udp_packet_size;
+bool dont_create_file = true;
 
 extern bool has_one_way_delay;
 
@@ -33,12 +37,28 @@ void GetTime(struct timespec *my_exec_time);
 
 int CheckingNsec(long then, long now);
 
+// Precondition: Receive it in decimal format of Mega Bits
+void print_bandwidth_bar(float bandwidth, float target_bandwidth){
+    float reach_percent = (float)bandwidth/(float)target_bandwidth;
+    int bar_max = 50;
+    int bar_counter = bar_max * reach_percent; // Only care for the first decimal accuracy;
+    
+    std::cout << "[";
+    for(int i = 0; i < bar_counter; i++)
+        std::cout << "#";
+    for(int i = bar_counter; i < bar_max; i++)
+        std::cout << ".";
+    std::cout << "]  " << reach_percent * 100 << "%" << std::endl;
+}
+
 int Server(Parameters *params){
 
     uint8_t buffer[BUFFER_SIZE];
     unsigned int parallel_data_streams = 1;
     unsigned int udp_port = 4001;
     unsigned int experiment_duration_sec = -1;
+    unsigned long long experiment_duration_nsec = 0;
+    unsigned int target_bandwidth = -1;
     float interval = 1;
     uint8_t *data;
     int data_recv = 0;
@@ -52,12 +72,16 @@ int Server(Parameters *params){
     const char *server_ip = NULL;
     std::ofstream output_file;
 
-    if(params->HasKey("-f"))
+    if(params->HasKey("-f")){
         output_file.open(params->GetValue("-f"));
+        dont_create_file = false;
+    }
 
-    if(params->HasKey("-a"))
-        server_ip = params->GetValue("-a").c_str();
-   
+    if(params->HasKey("-a")){
+        server_ip = (char *)malloc(sizeof(char) * strlen(params->GetValue("-a").c_str()));
+        strcpy(server_ip, params->GetValue("-a").c_str());
+    }
+
     if(params->HasKey("-p"))
         listening_port = stoi(params->GetValue("-p"));
         
@@ -106,13 +130,19 @@ int Server(Parameters *params){
     
     int *init_data;
     init_data = (int *)data;
+
+    parallel_data_streams       = ntohl(init_data[0]);
+    udp_packet_size             = ntohl(init_data[1]);
+    experiment_duration_nsec    = ntohl(init_data[2]);
+    has_one_way_delay           = ntohl(init_data[3]);
+    target_bandwidth            = ntohl(init_data[4]);
        
-    std::cout << "messsage len:" << ntohs(first_header->message_length) << "\nParalle streams: " << init_data[0]<< "\nudp_pac_size " << init_data[1] << std::endl ;
-    udp_packet_size = init_data[1];
-    experiment_duration_sec = init_data[2];
-    has_one_way_delay = init_data[3];
-    std::cout << "Experiment time: " << experiment_duration_sec << std::endl;
+    std::cout << "Parallel Streams: " << parallel_data_streams << std::endl;;
+    std::cout << "Udp Packet Size: " << udp_packet_size << std::endl;
+    std::cout << "Experiment time: " << experiment_duration_nsec << std::endl;
     std::cout << "Is one way: " << has_one_way_delay << std::endl;
+    std::cout << "Target Bandwidth: " << target_bandwidth << std::endl;
+
 
     // Send message back to client specifing the UDP port.
     init_data[0] = udp_port;
@@ -220,6 +250,9 @@ int Server(Parameters *params){
 
             // Interval Info Printing
             if(toNanoSeconds(interval_timer) <= toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000){
+                std::cout << "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+                std::cout << "Interval: " << (toNanoSeconds(my_exec_time) - (unsigned long long)(interval * 1000) * 1000 * 1000) / 1000000 << " ms" << std::endl;
+
                 interval_timer = my_exec_time;
                 
                 stream["finish_timer_ns"] = toNanoSeconds(my_exec_time);
@@ -232,23 +265,27 @@ int Server(Parameters *params){
                 std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~`\n";
                 std::cout << "Transfer: " << ((float)info_data_interval->data_sum / (1024*1024)) << "MB" << std::endl;
                 std::cout << "Bandwidth: " << ((float)info_data_interval->data_sum) * 8 / (1024*1024) / interval << "Mbits/sec" << std::endl;
+                print_bandwidth_bar( (((float)info_data_interval->data_sum) * 8 / (1024*1024) / interval), (float)target_bandwidth/(1000 * 1000));
+
                 std::cout << "Jitter: " << averageJitter << " nanoseconds" << std::endl;
                 std::cout << "Lost/Total: " << info_data_interval->lost_packet_sum << " / " << total_interval_packets 
                                             << " (" << ((float)info_data_interval->lost_packet_sum/(float)total_interval_packets)*100 << "%)" << std::endl;
 
                 // Write json information here.
                 // mpla mpla
-                stream["bytes"] = info_data_interval->data_sum;
-                stream["bits_per_second"] = ((float)info_data_interval->data_sum) * 8;
-                stream["jitter_ns"] = averageJitter;
-                stream["lost_packets"] = info_data_interval->lost_packet_sum;
-                stream["packets"] = total_interval_packets;
-                stream["lost_percent"] = ((float)info_data_interval->lost_packet_sum/(float)total_interval_packets)*100;
+                if(!dont_create_file){
+                    stream["bytes"] = info_data_interval->data_sum;
+                    stream["bits_per_second"] = ((float)info_data_interval->data_sum) * 8;
+                    stream["jitter_ns"] = averageJitter;
+                    stream["lost_packets"] = info_data_interval->lost_packet_sum;
+                    stream["packets"] = total_interval_packets;
+                    stream["lost_percent"] = ((float)info_data_interval->lost_packet_sum/(float)total_interval_packets)*100;
 
-                last_interval_seq_no = info_data->num_of_packets;
+                    last_interval_seq_no = info_data->num_of_packets;
 
-                
-                c_vector.push_back(stream);
+                    
+                    c_vector.push_back(stream);
+                }
 
                 delete info_data_interval; // Free memory and reset.
                 info_data_interval = new InfoData(); // Create new InfoData
@@ -291,15 +328,22 @@ int Server(Parameters *params){
     tcpwrapper->Send(client_socket, header, info_data, sizeof(InfoData));
 
     if(params->HasKey("-f")){
-        intro["interval"] = interval;
-        sums["sum"] ={sum};
-        intervals["intervals"] = {intro,j_vec,sums};
+        //if doesnt work, for get all val and then create new
+        json j_vec(intervals_vec);
+        json final_sum(sum_vec);
+        json sums, intro,intervals;
+        
+        intro["interval"] = interval;      
+        sums["sum_intervals"] ={final_sum};
+
+        intervals["intervals"] = {intro,j_vec, sums};
         output_file << std::setw(4) << intervals << std::endl;
-        output_file.close();
     }
+
     tcpwrapper->Close();
     udpwrapper->Close();
     close(client_socket);
-    
+    std::cout << "\n\nFIN\n";
+
     return -1;
 }
